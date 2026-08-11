@@ -1,6 +1,6 @@
 // cyberia master map — ui state, map interaction, intent queue
-/* global CATALOG, ACTIONS, TUBE_CONTENT, PYRAMID_FN, PRYSM_MAT, FLATS, PLACES,
-          MAP_W, MAP_H, CELL, MY_MAPS_ID, defaultConfig, Wire3D */
+/* global CATALOG, ACTIONS, TUBE_CONTENT, PYRAMID_FN, PRYSM_MAT, FLATS, CONTEXT,
+          LINES, PLACES, MAP_W, MAP_H, CELL, METER, MY_MAPS_ID, defaultConfig, Wire3D */
 
 const LS_KEY = 'cyberia-map:intents:v1';
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -163,10 +163,18 @@ function inPoly(x, y, pts) {
 function buildMap() {
   const svg = document.getElementById('map');
   svg.setAttribute('viewBox', `0 0 ${MAP_W} ${MAP_H}`);
+  svg.style.aspectRatio = `${MAP_W} / ${MAP_H}`;
   const grid = svgEl('g', { stroke: '#111811', 'stroke-width': 1 });
-  for (let x = 0; x <= MAP_W; x += CELL * 4) grid.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: MAP_H }));
-  for (let y = 0; y <= MAP_H; y += CELL * 4) grid.appendChild(svgEl('line', { x1: 0, y1: y, x2: MAP_W, y2: y }));
+  for (let x = 0; x <= MAP_W; x += CELL * 5) grid.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: MAP_H }));
+  for (let y = 0; y <= MAP_H; y += CELL * 5) grid.appendChild(svgEl('line', { x1: 0, y1: y, x2: MAP_W, y2: y }));
   svg.appendChild(grid);
+  for (const c of CONTEXT)
+    svg.appendChild(svgEl('polygon', { points: c.pts.map(p => p.join(',')).join(' '), class: 'ctx' }));
+  for (const l of LINES)
+    svg.appendChild(svgEl('polyline', {
+      points: l.pts.map(p => p.join(',')).join(' '),
+      class: /road/i.test(l.name) ? 'ctx-road' : 'ctx-line',
+    }));
   for (const f of FLATS) {
     const poly = svgEl('polygon', {
       id: `flat-${f.id}`, points: f.pts.map(p => p.join(',')).join(' '),
@@ -182,6 +190,11 @@ function buildMap() {
     svg.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3.5, class: 'place-dot' }));
     svg.appendChild(svgEl('text', { x: p.x, y: p.y - 8, class: 'place-label' }, p.name));
   }
+  const sbX = 16, sbY = MAP_H - 16, sbL = 40 * METER;
+  const sb = svgEl('g', { class: 'scalebar' });
+  sb.appendChild(svgEl('path', { d: `M${sbX},${sbY - 6} V${sbY} H${sbX + sbL} V${sbY - 6}` }));
+  sb.appendChild(svgEl('text', { x: sbX + sbL / 2, y: sbY - 10, class: 'scalebar-t' }, '40 m'));
+  svg.appendChild(sb);
   svg.appendChild(svgEl('g', { id: 'glyphs' }));
   svg.appendChild(svgEl('g', { id: 'sel' }));
   svg.addEventListener('click', e => {
@@ -291,8 +304,9 @@ function renderQueue() {
 }
 
 function renderStats() {
+  const fl = `${FLATS.length} phase-0 ${FLATS.length === 1 ? 'flat' : 'flats'}`;
   document.getElementById('stats').textContent =
-    `${state.intents.length} intents · ${FLATS.length} phase-0 flats · ${CATALOG.length} structures`;
+    `${state.intents.length} intents · ${fl} · ${CATALOG.length} structures`;
 }
 
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state.intents)); }
@@ -302,7 +316,8 @@ function load() {
     const raw = JSON.parse(localStorage.getItem(LS_KEY)) || [];
     state.intents = raw
       .map(it => it.structure === 'atom' ? { ...it, structure: 'cube' } : it)
-      .filter(it => CATALOG.some(s => s.id === it.structure));
+      .filter(it => CATALOG.some(s => s.id === it.structure) &&
+                    FLATS.some(f => f.id === it.flat));
   } catch { state.intents = []; }
 }
 

@@ -132,6 +132,12 @@ button { font-family: var(--mono); cursor: pointer; }
 }
 #map { display: block; width: 100%; aspect-ratio: 1000 / 760; cursor: crosshair; }
 
+.ctx { fill: rgba(40, 70, 45, 0.10); stroke: #24402a; stroke-width: 1.5; }
+.ctx-line { fill: none; stroke: #233b28; stroke-width: 2; }
+.ctx-road { fill: none; stroke: #3d423d; stroke-width: 5; stroke-linecap: round; }
+.scalebar path { fill: none; stroke: #55635a; stroke-width: 1.5; }
+.scalebar-t { fill: #55635a; font-family: var(--mono); font-size: 12px; text-anchor: middle; letter-spacing: 0.1em; }
+
 .flat { filter: drop-shadow(0 0 6px rgba(82, 224, 90, 0.25)); transition: fill-opacity 0.15s; }
 .flat.selected { stroke-width: 3.5; filter: drop-shadow(0 0 12px rgba(82, 224, 90, 0.5)); }
 
@@ -161,8 +167,7 @@ button { font-family: var(--mono); cursor: pointer; }
 .mapsrc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .maplegend { display: flex; gap: 18px; padding: 10px 4px 0; font-size: 11px; letter-spacing: 0.18em; }
-.lg.sinwood { color: var(--green); }
-.lg.cofe { color: var(--orange); }
+.lg.plot { color: var(--green); }
 .lg.dim { color: var(--dim2); letter-spacing: 0.08em; }
 
 /* ---- render (right top) ---- */

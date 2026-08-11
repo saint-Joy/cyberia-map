@@ -5,6 +5,13 @@ Business logic follows the fleets & flats surface: pick a structure,
 pick a site on the open map, tune the build, commit intent. Local
 intent queue, no closed backend.
 
+The map shows the actual construction site: rockets estate 1
+(1.48 ha, 17 vertices), geometry pulled from the cyber valley
+Google My Maps KML together with neighbour certificates, paths and
+in-plot places. Meters, north up, 4 m build cell. Regenerate
+`js/data.js` from a fresh KML with `tools/gen_data.py` (see its
+header for the download command).
+
 ## structures
 
 - cube — 4×4×4 multipurpose cell: unit (1/2-pax), room (purpose = free
