@@ -6,7 +6,7 @@ const LS_KEY = 'cyberia-map:intents:v1';
 const SVGNS = 'http://www.w3.org/2000/svg';
 
 const state = {
-  structure: 'atom',
+  structure: 'cube',
   configs: {},
   flat: null,
   cell: null,
@@ -46,11 +46,10 @@ let viewer;
 function metaLine() {
   const c = cfg();
   switch (state.structure) {
-    case 'atom':
+    case 'cube':
       if (c.mode === 'unit') return `cell · 4×4×4 m · unit · ${c.pax}-pax`;
       if (c.mode === 'room') return `cell · 4×4×4 m · room · ${c.purpose ? '“' + c.purpose + '”' : 'purpose unset'}`;
       return `cell · 4×4×4 m · wall grid 1×1×1 · ${c.walls.length} blocks`;
-    case 'molecule': return `cluster · ${c.atoms.length} atoms · ${c.connector} joints`;
     case 'tube': {
       const s = c.size === 'M' ? 4 : 2;
       return `link · ${c.size} ${s}×${s} · ${c.len} m · ${c.content.slice(0, 3).join(', ') || 'empty'}${c.content.length > 3 ? ' +' + (c.content.length - 3) : ''}`;
@@ -76,7 +75,7 @@ function renderConfig() {
   const el = document.getElementById('config');
   const c = cfg();
   let html = '';
-  if (state.structure === 'atom') {
+  if (state.structure === 'cube') {
     html += `<div class="cfg-row"><span class="cfg-label">MODE</span>` +
       ['unit', 'room', 'wallgrid'].map(m => chip(m === 'wallgrid' ? 'WALL GRID' : m.toUpperCase(), c.mode === m, `data-mode="${m}"`)).join('') + `</div>`;
     if (c.mode === 'unit')
@@ -93,13 +92,6 @@ function renderConfig() {
       }
       html += `</div></div>`;
     }
-  }
-  if (state.structure === 'molecule') {
-    html += `<div class="cfg-row"><span class="cfg-label">ATOMS · ${c.atoms.length}</span>` +
-      ['+X', '+Y', '+Z'].map(a => chip(a, false, `data-add="${a}"`)).join('') +
-      chip('UNDO', false, 'data-mol="undo"') + chip('RESET', false, 'data-mol="reset"') + `</div>`;
-    html += `<div class="cfg-row"><span class="cfg-label">JOINT</span>` +
-      ['direct', 'buffer', 'tube'].map(j => chip(j.toUpperCase(), c.connector === j, `data-joint="${j}"`)).join('') + `</div>`;
   }
   if (state.structure === 'tube') {
     html += `<div class="cfg-row"><span class="cfg-label">SIZE</span>` +
@@ -138,20 +130,6 @@ function wireConfig(el, c) {
   const purpose = el.querySelector('#purpose');
   if (purpose) purpose.oninput = () => { c.purpose = purpose.value; renderView(); };
   el.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { toggle(c.walls, b.dataset.w); refresh(); });
-  el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
-    if (c.atoms.length >= 8) return;
-    const d = { '+X': [1, 0, 0], '+Y': [0, 1, 0], '+Z': [0, 0, 1] }[b.dataset.add];
-    const last = c.atoms[c.atoms.length - 1];
-    const n = [last[0] + d[0], last[1] + d[1], last[2] + d[2]];
-    if (!c.atoms.some(a => a[0] === n[0] && a[1] === n[1] && a[2] === n[2])) c.atoms.push(n);
-    refresh();
-  });
-  el.querySelectorAll('[data-mol]').forEach(b => b.onclick = () => {
-    if (b.dataset.mol === 'undo' && c.atoms.length > 1) c.atoms.pop();
-    if (b.dataset.mol === 'reset') c.atoms = [[0, 0, 0], [1, 0, 0]];
-    refresh();
-  });
-  el.querySelectorAll('[data-joint]').forEach(b => b.onclick = () => { c.connector = b.dataset.joint; refresh(); });
   el.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { c.size = b.dataset.size; refresh(); });
   el.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { c.len = +b.dataset.len; refresh(); });
   el.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => { toggle(c.content, b.dataset.fill); refresh(); });
@@ -292,7 +270,7 @@ function removeIntent(n) {
 function renderQueue() {
   const el = document.getElementById('queue');
   if (!state.intents.length) {
-    el.innerHTML = `<div class="queue-empty">no intents yet — assign an atom to a flat</div>`;
+    el.innerHTML = `<div class="queue-empty">no intents yet — assign a cube to a flat</div>`;
     return;
   }
   el.innerHTML = state.intents.slice().reverse().map(it => {
@@ -320,8 +298,12 @@ function renderStats() {
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state.intents)); }
 
 function load() {
-  try { state.intents = JSON.parse(localStorage.getItem(LS_KEY)) || []; }
-  catch { state.intents = []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_KEY)) || [];
+    state.intents = raw
+      .map(it => it.structure === 'atom' ? { ...it, structure: 'cube' } : it)
+      .filter(it => CATALOG.some(s => s.id === it.structure));
+  } catch { state.intents = []; }
 }
 
 // ---- boot ----

@@ -2,8 +2,7 @@
 // units: meters in 3d, map grid cell = 4 m
 
 const CATALOG = [
-  { id: 'atom',     name: 'ATOM-4',   sub: '4×4×4 multipurpose cell', tag: 'CELL',    status: 'P0', glyph: 'A' },
-  { id: 'molecule', name: 'MOLECULE', sub: 'atoms × buffer / tube',   tag: 'CLUSTER', status: 'P0', glyph: 'M' },
+  { id: 'cube',     name: 'CUBE-4',   sub: '4×4×4 multipurpose cell', tag: 'CELL',    status: 'P0', glyph: 'C' },
   { id: 'tube',     name: 'TUBE',     sub: 'living connector S · M',  tag: 'LINK',    status: 'P0', glyph: 'T' },
   { id: 'prysm',    name: 'PRYSM',    sub: 'half-rhomb triangle',     tag: 'MODULE',  status: 'P1', glyph: 'P' },
   { id: 'pyramid',  name: 'PYRAMID',  sub: 'reception · market · grill', tag: 'HUB',  status: 'P1', glyph: 'Y' },
@@ -62,8 +61,7 @@ const MY_MAPS_ID = '1hxZIoQKB8vDdmox1HadSal-Zz4kUEJl';
 
 function defaultConfig(id) {
   switch (id) {
-    case 'atom':     return { mode: 'unit', pax: 1, purpose: '', walls: [] };
-    case 'molecule': return { atoms: [[0, 0, 0], [1, 0, 0]], connector: 'tube' };
+    case 'cube':     return { mode: 'unit', pax: 1, purpose: '', walls: [] };
     case 'tube':     return { size: 'S', len: 8, content: ['closed pond', 'glass path top'] };
     case 'prysm':    return { h: 2, mat: ['wood', 'glass'], modular: true };
     case 'pyramid':  return { fns: ['reception', 'shop', 'cafe'] };

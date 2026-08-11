@@ -95,7 +95,7 @@ const Wire3D = (() => {
 
   // ---- structure builders ----
 
-  function buildAtom(cfg) {
+  function buildCube(cfg) {
     const groups = [ground(7, 2), { color: GREEN, glow: true, edges: box(0, 2, 0, 4, 4, 4) }];
     if (cfg.mode === 'unit') {
       const beds = { color: ORANGE, edges: [] };
@@ -120,33 +120,6 @@ const Wire3D = (() => {
       if (walls.edges.length) groups.push(walls);
     }
     return { groups, radius: 5.5, cy: 2 };
-  }
-
-  function buildMolecule(cfg) {
-    const gap = cfg.connector === 'direct' ? 0 : 2, pitch = 4 + gap;
-    const cubes = { color: GREEN, glow: true, edges: [] };
-    const conn = { color: cfg.connector === 'tube' ? CYAN : ORANGE, edges: [] };
-    let maxR = 4;
-    const pos = cfg.atoms.map(a => [a[0] * pitch, a[1] * pitch + 2, a[2] * pitch]);
-    for (const p of pos) {
-      cubes.edges.push(...box(p[0], p[1], p[2], 4, 4, 4));
-      maxR = Math.max(maxR, Math.hypot(p[0], p[2]) + 4, p[1] + 2);
-    }
-    if (gap > 0) for (let i = 0; i < cfg.atoms.length; i++)
-      for (let j = i + 1; j < cfg.atoms.length; j++) {
-        const A = cfg.atoms[i], B = cfg.atoms[j];
-        const d = Math.abs(A[0] - B[0]) + Math.abs(A[1] - B[1]) + Math.abs(A[2] - B[2]);
-        if (d !== 1) continue;
-        const m = [(pos[i][0] + pos[j][0]) / 2, (pos[i][1] + pos[j][1]) / 2, (pos[i][2] + pos[j][2]) / 2];
-        const s = cfg.connector === 'tube' ? 1.6 : 2;
-        const along = [Math.abs(A[0] - B[0]), Math.abs(A[1] - B[1]), Math.abs(A[2] - B[2])];
-        conn.edges.push(...box(m[0], m[1], m[2],
-          along[0] ? gap : s, along[1] ? gap : s, along[2] ? gap : s));
-      }
-    const groups = [ground(Math.ceil(maxR) + 3, 2), cubes];
-    if (conn.edges.length) groups.push(conn);
-    const cy = Math.max(...pos.map(p => p[1])) / 2 + 1;
-    return { groups, radius: maxR + 1, cy };
   }
 
   function buildTube(cfg) {
@@ -240,8 +213,7 @@ const Wire3D = (() => {
 
   function build(id, cfg) {
     switch (id) {
-      case 'atom':     return buildAtom(cfg);
-      case 'molecule': return buildMolecule(cfg);
+      case 'cube':     return buildCube(cfg);
       case 'tube':     return buildTube(cfg);
       case 'prysm':    return buildPrysm(cfg);
       case 'pyramid':  return buildPyramid(cfg);
