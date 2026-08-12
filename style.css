@@ -133,8 +133,9 @@ button { font-family: var(--mono); cursor: pointer; }
 #map { display: block; width: 100%; aspect-ratio: 1000 / 760; cursor: crosshair; }
 
 .ctx { fill: rgba(40, 70, 45, 0.10); stroke: #24402a; stroke-width: 1.5; }
-.ctx-line { fill: none; stroke: #233b28; stroke-width: 2; }
-.ctx-road { fill: none; stroke: #3d423d; stroke-width: 5; stroke-linecap: round; }
+.ctx-cert { fill: rgba(190, 70, 55, 0.16); stroke: #7d4038; stroke-width: 2; }
+.ctx-line { fill: none; stroke: #2c4c33; stroke-width: 2.5; }
+.ctx-road { fill: none; stroke: #3d423d; stroke-width: 16; stroke-linecap: round; }
 .scalebar path { fill: none; stroke: #55635a; stroke-width: 1.5; }
 .scalebar-t { fill: #55635a; font-family: var(--mono); font-size: 12px; text-anchor: middle; letter-spacing: 0.1em; }
 

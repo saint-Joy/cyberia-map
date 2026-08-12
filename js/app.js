@@ -169,7 +169,10 @@ function buildMap() {
   for (let y = 0; y <= MAP_H; y += CELL * 5) grid.appendChild(svgEl('line', { x1: 0, y1: y, x2: MAP_W, y2: y }));
   svg.appendChild(grid);
   for (const c of CONTEXT)
-    svg.appendChild(svgEl('polygon', { points: c.pts.map(p => p.join(',')).join(' '), class: 'ctx' }));
+    svg.appendChild(svgEl('polygon', {
+      points: c.pts.map(p => p.join(',')).join(' '),
+      class: c.kind === 'certificates' ? 'ctx-cert' : 'ctx',
+    }));
   for (const l of LINES)
     svg.appendChild(svgEl('polyline', {
       points: l.pts.map(p => p.join(',')).join(' '),

@@ -5,12 +5,14 @@ Business logic follows the fleets & flats surface: pick a structure,
 pick a site on the open map, tune the build, commit intent. Local
 intent queue, no closed backend.
 
-The map shows the actual construction site: rockets estate 1
-(1.48 ha, 17 vertices), geometry pulled from the cyber valley
-Google My Maps KML together with neighbour certificates, paths and
-in-plot places. Meters, north up, 4 m build cell. Regenerate
-`js/data.js` from a fresh KML with `tools/gen_data.py` (see its
-header for the download command).
+The map shows the construction site (SITE 0, ≈1.4 ha) traced
+point-by-point from the master-plan my-maps screenshot, together
+with the road, the neighbour parcel across it and nearby trails.
+North up, 4 m build cell. Scale is approximate — anchored to the
+road width (≈4 m); fix `PX_PER_M` in `tools/trace_site0.py` and
+regenerate `js/data.js` once the exact size is known.
+`tools/gen_data.py` stays for pulling any named parcel from the
+cyber valley KML instead.
 
 ## structures
 
