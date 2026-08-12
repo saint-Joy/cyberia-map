@@ -51,20 +51,25 @@
         <section class="panel" id="mappanel">
             <h2>FLATS <small>construction site · phase 0</small></h2>
             <div id="mapwrap"><svg id="map" preserveAspectRatio="xMidYMid meet"></svg></div>
+            <div id="dash"></div>
             <div class="mapfoot">
                 <span>N ↑</span>
-                <span class="mapsrc">traced from master-plan map · scale approx: road ≈ 4 m</span>
+                <span class="mapsrc">traced from master-plan map · 0.096 ha per google maps · roads 2 m</span>
                 <a id="kml-link" href="#" target="_blank" rel="noopener">cyber valley my-maps</a>
             </div>
             <div class="maplegend">
-                <span class="lg plot">SITE 0 · ≈1.4 ha</span>
-                <span class="lg dim">context · road + neighbour + trails</span>
+                <span class="lg plot">SITE 0 · 0.096 ha</span>
+                <span class="lg dim">gray road · green garden roads · 2 m</span>
             </div>
         </section>
 
         <section class="col-right">
             <section class="panel" id="renderp">
-                <h2>RENDER <small id="render-sub">selected structure · 3d</small></h2>
+                <h2>RENDER <small id="render-sub">selected structure · 3d</small>
+                    <span id="view-toggle">
+                        <button class="vchip on" data-view="structure">STRUCTURE</button>
+                        <button class="vchip" data-view="site">SITE</button>
+                    </span></h2>
                 <canvas id="view3d"></canvas>
                 <div id="render-name">CUBE-4</div>
                 <div id="render-meta"></div>
@@ -75,9 +80,11 @@
                 <div class="irow"><span class="ikey">STRUCTURE</span><span class="ival" id="iv-structure">CUBE-4</span></div>
                 <div class="irow"><span class="ikey">FLAT</span><span class="ival" id="iv-flat">—</span></div>
                 <div class="irow"><span class="ikey">SITE</span><span class="ival" id="iv-site">—</span></div>
+                <div class="irow"><span class="ikey">FOOTPRINT</span><span class="ival" id="iv-fp">—</span></div>
                 <div id="actions" class="actions"></div>
                 <div id="config"></div>
                 <button id="commit" disabled>COMMIT INTENT</button>
+                <div id="fit-hint"></div>
                 <div id="queue"></div>
             </section>
         </section>

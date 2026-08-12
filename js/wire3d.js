@@ -1,10 +1,11 @@
 // wire3d — zero-dependency wireframe renderer (canvas 2d, perspective, auto-orbit)
 // model = { groups: [{ color, dash, width, glow, edges: [[x1,y1,z1,x2,y2,z2],…] }], radius, cy }
-// axes: Y up, ground at y = 0
+// axes: Y up, ground at y = 0. all solids are canonical: cube, prism, pyramid, sphere.
 
 const Wire3D = (() => {
   const GREEN = '#52e05a', DIM = '#23532a', ORANGE = '#e08a3c',
-        CYAN = '#55d7e8', GRAY = '#3d4a40', BRIGHT = '#8df595';
+        CYAN = '#55d7e8', GRAY = '#6b756d', BRIGHT = '#8df595';
+  const MATCOL = { wood: ORANGE, glass: CYAN, metal: GRAY };
 
   function attach(canvas) {
     const ctx = canvas.getContext('2d');
@@ -62,7 +63,7 @@ const Wire3D = (() => {
     return { setModel: m => { model = m; } };
   }
 
-  // ---- geometry helpers ----
+  // ---- geometry primitives ----
 
   function box(cx, cy, cz, w, h, d) {
     const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2,
@@ -78,12 +79,6 @@ const Wire3D = (() => {
             [x1, y, z1, x0, y, z1], [x0, y, z1, x0, y, z0]];
   }
 
-  function ground(size, step) {
-    const E = [], s = size;
-    for (let i = -s; i <= s; i += step) E.push([i, 0, -s, i, 0, s], [-s, 0, i, s, 0, i]);
-    return { color: '#141b15', edges: E, width: 1 };
-  }
-
   function ringY(y, r, seg) {
     const E = [];
     for (let i = 0; i < seg; i++) {
@@ -93,21 +88,22 @@ const Wire3D = (() => {
     return E;
   }
 
-  // ---- structure builders ----
+  function ground(size, step) {
+    const E = [], s = size;
+    for (let i = -s; i <= s; i += step) E.push([i, 0, -s, i, 0, s], [-s, 0, i, s, 0, i]);
+    return { color: '#141b15', edges: E, width: 1 };
+  }
 
-  function buildCube(cfg) {
-    const groups = [ground(7, 2), { color: GREEN, glow: true, edges: box(0, 2, 0, 4, 4, 4) }];
-    if (cfg.mode === 'unit') {
-      const beds = { color: ORANGE, edges: [] };
-      beds.edges.push(...box(-0.8, 0.3, -0.9, 2, 0.6, 1.2));
-      if (cfg.pax === 2) {
-        beds.edges.push(...box(0.8, 2.3, 0.9, 2, 0.6, 1.2));
-        groups.push({ color: DIM, dash: [4, 4], edges: rectY(2, -2, -2, 2, 2) });
-      }
-      groups.push(beds);
-    }
-    if (cfg.mode === 'room')
-      groups.push({ color: DIM, dash: [3, 5], edges: rectY(0.02, -1.5, -1.5, 1.5, 1.5) });
+  const tr = (groups, dx, dz) => groups.map(g => ({
+    ...g, edges: g.edges.map(e => [e[0] + dx, e[1], e[2] + dz, e[3] + dx, e[4], e[5] + dz]),
+  }));
+
+  const recolor = (groups, color) => groups.map(g => ({ ...g, color, glow: false }));
+
+  // ---- structures: canonical solids ----
+
+  function cubeGroups(cfg) {
+    const groups = [{ color: GREEN, glow: true, edges: box(0, 2, 0, 4, 4, 4) }];
     if (cfg.mode === 'wallgrid') {
       const lat = { color: DIM, dash: [2, 4], edges: [] };
       for (let i = -1; i <= 1; i++) lat.edges.push([i, 0.02, -2, i, 0.02, 2], [-2, 0.02, i, 2, 0.02, i]);
@@ -119,87 +115,57 @@ const Wire3D = (() => {
       }
       if (walls.edges.length) groups.push(walls);
     }
-    return { groups, radius: 5.5, cy: 2 };
+    return groups;
   }
 
-  function buildTube(cfg) {
+  function tubeGroups(cfg) {
     const s = cfg.size === 'M' ? 4 : 2, L = cfg.len, half = L / 2;
-    const groups = [ground(half + 4, 4),
-      { color: GREEN, glow: true, edges: box(0, s / 2, 0, L, s, s) }];
+    const groups = [{ color: GREEN, glow: true, edges: box(0, s / 2, 0, L, s, s) }];
     const frames = { color: DIM, edges: [] };
     for (let x = -half + 2; x < half; x += 2)
       frames.edges.push([x, 0, -s / 2, x, s, -s / 2], [x, s, -s / 2, x, s, s / 2],
                         [x, s, s / 2, x, 0, s / 2], [x, 0, s / 2, x, 0, -s / 2]);
     groups.push(frames);
-    const has = c => cfg.content.includes(c);
-    if (has('closed pond'))
-      groups.push({ color: CYAN, dash: [5, 4], edges: rectY(0.25, -half + 0.5, -s / 2 + 0.4, half - 0.5, s / 2 - 0.4) });
-    if (has('glass path top'))
-      groups.push({ color: CYAN, edges: [[-half, s, -s / 4, half, s, -s / 4], [-half, s, s / 4, half, s, s / 4]] });
-    if (has('algae bioreactor'))
-      groups.push({ color: BRIGHT, dash: [2, 3], edges: [[-half + 1, s * 0.6, 0, half - 1, s * 0.6, 0]] });
-    if (has('vines')) {
-      const v = { color: DIM, dash: [1, 3], edges: [] };
-      for (let x = -half + 1; x < half; x += 3)
-        v.edges.push([x, 0, -s / 2, x + 1, s, -s / 2], [x + 1, 0, s / 2, x, s, s / 2]);
-      groups.push(v);
-    }
-    return { groups, radius: half + 2, cy: s / 2 };
+    if (cfg.content.includes('closed pond'))
+      groups.push({ color: CYAN, dash: [5, 4],
+                    edges: rectY(0.25, -half + 0.5, -s / 2 + 0.4, half - 0.5, s / 2 - 0.4) });
+    return groups;
   }
 
-  function buildPrysm(cfg) {
+  function prysmGroups(cfg) {
     const h = cfg.h, base = 4, depth = cfg.modular ? 8 : 4, zh = depth / 2;
+    const color = cfg.mat.length === 1 ? MATCOL[cfg.mat[0]] : GREEN;
     const tri = z => [[-base / 2, 0, z, base / 2, 0, z],
                       [base / 2, 0, z, 0, h, z], [0, h, z, -base / 2, 0, z]];
-    const groups = [ground(7, 2), { color: GREEN, glow: true, edges: [
+    const groups = [{ color, glow: true, edges: [
       ...tri(-zh), ...tri(zh),
       [-base / 2, 0, -zh, -base / 2, 0, zh], [base / 2, 0, -zh, base / 2, 0, zh],
       [0, h, -zh, 0, h, zh]] }];
     if (cfg.modular) groups.push({ color: DIM, edges: tri(0) });
-    if (cfg.mat.includes('glass')) {
-      const i = 0.75;
-      groups.push({ color: CYAN, dash: [4, 4], edges: [
-        ...[[-base / 2 * i, 0.1, -zh, base / 2 * i, 0.1, -zh],
-            [base / 2 * i, 0.1, -zh, 0, h * i, -zh], [0, h * i, -zh, -base / 2 * i, 0.1, -zh]]] });
-    }
-    if (cfg.mat.includes('wood'))
-      groups.push({ color: ORANGE, edges: [[-base / 2, 0.12, -zh, -base / 2, 0.12, zh],
-                                           [base / 2, 0.12, -zh, base / 2, 0.12, zh]] });
-    if (cfg.mat.includes('metal'))
-      groups.push({ color: GRAY, width: 2, edges: [[0, h, -zh, 0, h, zh]] });
-    return { groups, radius: Math.max(zh, base) + 2, cy: h / 2 };
+    return groups;
   }
 
-  function buildPyramid(cfg) {
+  function pyramidGroups(cfg) {
     const b = 6, h = 8;
-    const groups = [ground(10, 2), { color: GREEN, glow: true, edges: [
+    const groups = [{ color: GREEN, glow: true, edges: [
       ...rectY(0, -b, -b, b, b),
       [-b, 0, -b, 0, h, 0], [b, 0, -b, 0, h, 0], [b, 0, b, 0, h, 0], [-b, 0, b, 0, h, 0]] }];
     const half = b * (1 - 4 / h);
     groups.push({ color: DIM, dash: [4, 4], edges: rectY(4, -half, -half, half, half) });
-    const n = Math.min(cfg.fns.length, 8);
-    if (n) {
-      const stalls = { color: ORANGE, edges: [] };
-      for (let i = 0; i < n; i++) {
-        const a = i / n * 2 * Math.PI, r = b * 0.55;
-        stalls.edges.push(...box(r * Math.cos(a), 0.6, r * Math.sin(a), 1.2, 1.2, 1.2));
-      }
-      groups.push(stalls);
-    }
-    return { groups, radius: b + 4, cy: h / 2 - 1 };
+    return groups;
   }
 
-  function buildSphere(cfg) {
-    const r = 4, groups = [ground(8, 2)];
+  function sphereGroups(cfg) {
+    const r = 4;
     const upper = { color: cfg.orangery ? GREEN : GRAY, glow: cfg.orangery, edges: [] };
     const lower = { color: cfg.water ? CYAN : GRAY, dash: [4, 4], edges: [] };
-    for (const phi of [15, 35, 55, 75]) {
+    for (const phi of [22.5, 45, 67.5]) {
       const a = phi * Math.PI / 180;
       upper.edges.push(...ringY(r * Math.sin(a), r * Math.cos(a), 28));
       lower.edges.push(...ringY(-r * Math.sin(a), r * Math.cos(a), 28));
     }
     for (let m = 0; m < 8; m++) {
-      const t = m / 8 * 2 * Math.PI, seg = 14;
+      const t = m / 8 * 2 * Math.PI, seg = 16;
       for (let i = 0; i < seg; i++) {
         const p0 = -Math.PI / 2 + i / seg * Math.PI, p1 = -Math.PI / 2 + (i + 1) / seg * Math.PI;
         const e = [r * Math.cos(p0) * Math.cos(t), r * Math.sin(p0), r * Math.cos(p0) * Math.sin(t),
@@ -207,19 +173,62 @@ const Wire3D = (() => {
         ((p0 + p1) / 2 >= 0 ? upper : lower).edges.push(e);
       }
     }
-    groups.push(upper, lower, { color: BRIGHT, glow: true, edges: ringY(0, r, 36) });
-    return { groups, radius: r + 2.5, cy: 0 };
+    return [upper, lower, { color: BRIGHT, glow: true, edges: ringY(0, r, 36) }];
   }
+
+  const BUILDERS = { cube: cubeGroups, tube: tubeGroups, prysm: prysmGroups,
+                     pyramid: pyramidGroups, sphere: sphereGroups };
+  const RADII = { cube: 5.5, tube: c => c.len / 2 + 2, prysm: 6, pyramid: 10, sphere: 6.5 };
 
   function build(id, cfg) {
-    switch (id) {
-      case 'cube':     return buildCube(cfg);
-      case 'tube':     return buildTube(cfg);
-      case 'prysm':    return buildPrysm(cfg);
-      case 'pyramid':  return buildPyramid(cfg);
-      case 'sphere':   return buildSphere(cfg);
-    }
+    const groups = [ground(id === 'pyramid' ? 10 : 7, 2), ...BUILDERS[id](cfg)];
+    const radius = typeof RADII[id] === 'function' ? RADII[id](cfg) : RADII[id];
+    const cy = { cube: 2, tube: cfg.size === 'M' ? 2 : 1, prysm: cfg.h / 2,
+                 pyramid: 3, sphere: 0 }[id];
+    return { groups, radius, cy };
   }
 
-  return { attach, build };
+  // ---- site landscape: plot + placed structures + selection ----
+  // plotPts in svg units; intents: [{structure, config, anchor:[c,r], fp:{cols,rows}, done}]
+  // sel: {c0,r0,c1,r1} in cells or null
+
+  function buildSite(plotPts, intents, sel, METER, CELLU) {
+    const m = plotPts.map(p => [p[0] / METER, p[1] / METER]);
+    const xs = m.map(p => p[0]), zs = m.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const z0 = Math.min(...zs), z1 = Math.max(...zs);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const X = x => x - cx, Z = z => z - cz;
+
+    const outline = { color: GREEN, glow: true, width: 1.8, edges: [] };
+    for (let i = 0; i < m.length; i++) {
+      const a = m[i], b = m[(i + 1) % m.length];
+      outline.edges.push([X(a[0]), 0, Z(a[1]), X(b[0]), 0, Z(b[1])]);
+    }
+    const grid = { color: '#16211a', width: 1, edges: [] };
+    for (let gx = Math.ceil(x0 / 4) * 4; gx <= x1; gx += 4)
+      grid.edges.push([X(gx), 0, Z(z0), X(gx), 0, Z(z1)]);
+    for (let gz = Math.ceil(z0 / 4) * 4; gz <= z1; gz += 4)
+      grid.edges.push([X(x0), 0, Z(gz), X(x1), 0, Z(gz)]);
+
+    const groups = [grid, outline];
+    const cellM = CELLU / METER;
+    for (const it of intents) {
+      const bx = (it.anchor[0] + it.fp.cols / 2) * cellM;
+      const bz = (it.anchor[1] + it.fp.rows / 2) * cellM;
+      let g = BUILDERS[it.structure](it.config);
+      if (it.done) g = recolor(g, GRAY);
+      groups.push(...tr(g, X(bx), Z(bz)));
+    }
+    if (sel) {
+      const sx0 = Math.min(sel.c0, sel.c1) * cellM, sx1 = (Math.max(sel.c0, sel.c1) + 1) * cellM;
+      const sz0 = Math.min(sel.r0, sel.r1) * cellM, sz1 = (Math.max(sel.r0, sel.r1) + 1) * cellM;
+      groups.push({ color: CYAN, dash: [4, 3], width: 1.6,
+                    edges: rectY(0.05, X(sx0), Z(sz0), X(sx1), Z(sz1)) });
+    }
+    const radius = Math.max(x1 - x0, z1 - z0) / 2 + 4;
+    return { groups, radius, cy: 3 };
+  }
+
+  return { attach, build, buildSite };
 })();

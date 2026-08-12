@@ -1,16 +1,19 @@
-// cyberia master map — ui state, map interaction, intent queue
+// cyberia master map — ui state, area selection, intent queue, dashboard
 /* global CATALOG, ACTIONS, TUBE_CONTENT, PYRAMID_FN, PRYSM_MAT, FLATS, CONTEXT,
-          LINES, PLACES, MAP_W, MAP_H, CELL, METER, MY_MAPS_ID, defaultConfig, Wire3D */
+          LINES, PLACES, MAP_W, MAP_H, CELL, METER, PLOT_AREA_M2, MY_MAPS_ID,
+          defaultConfig, Wire3D */
 
-const LS_KEY = 'cyberia-map:intents:v1';
+const LS_KEY = 'cyberia-map:intents:v2';
 const SVGNS = 'http://www.w3.org/2000/svg';
+const CELL_M2 = 16; // 4×4 m build cell
 
 const state = {
   structure: 'cube',
   configs: {},
   flat: null,
-  cell: null,
+  sel: null,          // {c0,r0,c1,r1} in cells
   action: 'BUILD',
+  view: 'structure',  // 'structure' | 'site'
   intents: [],
 };
 
@@ -21,6 +24,64 @@ function cfg() {
 
 const esc = s => String(s).replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ---- grid / area helpers ----
+
+function inPoly(x, y, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if (yi > y !== yj > y && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+const cellInPlot = (c, r) => inPoly((c + 0.5) * CELL, (r + 0.5) * CELL, FLATS[0].pts);
+
+function occupiedSet() {
+  const s = new Set();
+  for (const it of state.intents) for (const c of it.cells) s.add(c[0] + ',' + c[1]);
+  return s;
+}
+
+const normSel = s => ({ c0: Math.min(s.c0, s.c1), r0: Math.min(s.r0, s.r1),
+                        c1: Math.max(s.c0, s.c1), r1: Math.max(s.r0, s.r1) });
+
+function selCells(sel) {
+  const n = normSel(sel), occ = occupiedSet(), out = [];
+  for (let r = n.r0; r <= n.r1; r++) for (let c = n.c0; c <= n.c1; c++)
+    if (cellInPlot(c, r) && !occ.has(c + ',' + r)) out.push([c, r]);
+  return out;
+}
+
+function footprint() {
+  const c = cfg();
+  switch (state.structure) {
+    case 'cube':    return { cols: 1, rows: 1 };
+    case 'tube':    return { cols: Math.ceil(c.len / 4), rows: 1 };
+    case 'prysm':   return { cols: 1, rows: c.modular ? 2 : 1 };
+    case 'pyramid': return { cols: 3, rows: 3 };
+    case 'sphere':  return { cols: 2, rows: 2 };
+  }
+}
+
+function fitsSelection() {
+  if (!state.sel) return false;
+  const n = normSel(state.sel), fp = footprint();
+  if (n.c1 - n.c0 + 1 < fp.cols || n.r1 - n.r0 + 1 < fp.rows) return false;
+  const occ = occupiedSet();
+  for (let r = n.r0; r < n.r0 + fp.rows; r++) for (let c = n.c0; c < n.c0 + fp.cols; c++)
+    if (!cellInPlot(c, r) || occ.has(c + ',' + r)) return false;
+  return selCells(state.sel).length > 0;
+}
+
+const areaOf = it => it.cells.length * CELL_M2;
+
+function dashNumbers() {
+  let built = 0, inbuild = 0;
+  for (const it of state.intents) it.done ? built += areaOf(it) : inbuild += areaOf(it);
+  return { built, inbuild, free: Math.max(0, PLOT_AREA_M2 - built - inbuild) };
+}
 
 // ---- structure catalog (left panel) ----
 
@@ -35,6 +96,7 @@ function renderCatalog() {
     </div>`).join('');
   el.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
     state.structure = c.dataset.id;
+    state.view = 'structure';
     renderCatalog(); renderConfig(); renderView(); renderIntentRows();
   }));
 }
@@ -61,6 +123,16 @@ function metaLine() {
 }
 
 function renderView() {
+  document.querySelectorAll('.vchip').forEach(b =>
+    b.classList.toggle('on', b.dataset.view === state.view));
+  if (state.view === 'site') {
+    viewer.setModel(Wire3D.buildSite(FLATS[0].pts, state.intents, state.sel, METER, CELL));
+    const d = dashNumbers();
+    document.getElementById('render-name').textContent = 'SITE 0';
+    document.getElementById('render-meta').textContent =
+      `0.096 ha · ${state.intents.length} builds · ${d.built + d.inbuild} m² allocated`;
+    return;
+  }
   viewer.setModel(Wire3D.build(state.structure, cfg()));
   const s = CATALOG.find(x => x.id === state.structure);
   document.getElementById('render-name').textContent = s.name;
@@ -140,7 +212,10 @@ function wireConfig(el, c) {
   el.querySelectorAll('[data-sph]').forEach(b => b.onclick = () => { c[b.dataset.sph] = !c[b.dataset.sph]; refresh(); });
 }
 
-function refresh() { renderConfig(); renderView(); }
+function refresh() {
+  if (state.view === 'site') state.view = 'structure';
+  renderConfig(); renderView(); renderIntentRows();
+}
 
 // ---- map (center panel) ----
 
@@ -151,79 +226,91 @@ function svgEl(tag, attrs, text) {
   return e;
 }
 
-function inPoly(x, y, pts) {
-  let inside = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const [xi, yi] = pts[i], [xj, yj] = pts[j];
-    if (yi > y !== yj > y && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
 function buildMap() {
   const svg = document.getElementById('map');
   svg.setAttribute('viewBox', `0 0 ${MAP_W} ${MAP_H}`);
   svg.style.aspectRatio = `${MAP_W} / ${MAP_H}`;
-  const grid = svgEl('g', { stroke: '#111811', 'stroke-width': 1 });
-  for (let x = 0; x <= MAP_W; x += CELL * 5) grid.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: MAP_H }));
-  for (let y = 0; y <= MAP_H; y += CELL * 5) grid.appendChild(svgEl('line', { x1: 0, y1: y, x2: MAP_W, y2: y }));
+  const grid = svgEl('g', { stroke: '#121a12', 'stroke-width': 1 });
+  for (let x = 0; x <= MAP_W; x += CELL) grid.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: MAP_H }));
+  for (let y = 0; y <= MAP_H; y += CELL) grid.appendChild(svgEl('line', { x1: 0, y1: y, x2: MAP_W, y2: y }));
   svg.appendChild(grid);
+  for (const l of LINES)
+    svg.appendChild(svgEl('polyline', {
+      points: l.pts.map(p => p.join(',')).join(' '),
+      class: l.name === 'road' ? 'ctx-road' : 'ctx-line',
+      'stroke-width': 2 * METER,
+    }));
   for (const c of CONTEXT)
     svg.appendChild(svgEl('polygon', {
       points: c.pts.map(p => p.join(',')).join(' '),
       class: c.kind === 'certificates' ? 'ctx-cert' : 'ctx',
     }));
-  for (const l of LINES)
-    svg.appendChild(svgEl('polyline', {
-      points: l.pts.map(p => p.join(',')).join(' '),
-      class: /road/i.test(l.name) ? 'ctx-road' : 'ctx-line',
-    }));
   for (const f of FLATS) {
     const poly = svgEl('polygon', {
       id: `flat-${f.id}`, points: f.pts.map(p => p.join(',')).join(' '),
-      fill: f.fill, stroke: f.color, 'stroke-width': 2.5, 'stroke-linejoin': 'round',
+      fill: f.fill, stroke: f.color, 'stroke-width': 3, 'stroke-linejoin': 'round',
     });
     poly.classList.add('flat');
     svg.appendChild(poly);
     const cx = f.pts.reduce((s, p) => s + p[0], 0) / f.pts.length;
-    const cy = f.pts.reduce((s, p) => s + p[1], 0) / f.pts.length;
-    svg.appendChild(svgEl('text', { x: cx, y: cy, class: 'flat-label', fill: f.color }, f.name));
+    const by = Math.max(...f.pts.map(p => p[1]));
+    svg.appendChild(svgEl('text', { x: cx, y: by - 28, class: 'flat-label', fill: f.color }, f.name));
   }
-  for (const p of PLACES) {
-    svg.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3.5, class: 'place-dot' }));
-    svg.appendChild(svgEl('text', { x: p.x, y: p.y - 8, class: 'place-label' }, p.name));
-  }
-  const sbX = 16, sbY = MAP_H - 16, sbL = 40 * METER;
+  const sbX = 24, sbY = MAP_H - 24, sbL = 10 * METER;
   const sb = svgEl('g', { class: 'scalebar' });
-  sb.appendChild(svgEl('path', { d: `M${sbX},${sbY - 6} V${sbY} H${sbX + sbL} V${sbY - 6}` }));
-  sb.appendChild(svgEl('text', { x: sbX + sbL / 2, y: sbY - 10, class: 'scalebar-t' }, '40 m'));
+  sb.appendChild(svgEl('path', { d: `M${sbX},${sbY - 8} V${sbY} H${sbX + sbL} V${sbY - 8}` }));
+  sb.appendChild(svgEl('text', { x: sbX + sbL / 2, y: sbY - 14, class: 'scalebar-t' }, '10 m'));
   svg.appendChild(sb);
   svg.appendChild(svgEl('g', { id: 'glyphs' }));
   svg.appendChild(svgEl('g', { id: 'sel' }));
-  svg.addEventListener('click', e => {
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    const flat = FLATS.find(f => inPoly(p.x, p.y, f.pts));
-    if (!flat) return;
-    state.flat = flat.id;
-    state.cell = [Math.floor(p.x / CELL), Math.floor(p.y / CELL)];
-    renderSelection(); renderIntentRows();
+  wirePointer(svg);
+}
+
+function cellAt(svg, e) {
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  return [Math.floor(p.x / CELL), Math.floor(p.y / CELL)];
+}
+
+function wirePointer(svg) {
+  let dragging = false;
+  svg.addEventListener('pointerdown', e => {
+    const [c, r] = cellAt(svg, e);
+    dragging = true;
+    svg.classList.add('dragging');
+    svg.setPointerCapture(e.pointerId);
+    state.sel = { c0: c, r0: r, c1: c, r1: r };
+    state.flat = FLATS[0].id;
+    state.view = 'site';
+    renderSelection(); renderIntentRows(); renderView();
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const [c, r] = cellAt(svg, e);
+    if (c === state.sel.c1 && r === state.sel.r1) return;
+    state.sel.c1 = c; state.sel.r1 = r;
+    renderSelection(); renderIntentRows(); renderView();
+  });
+  svg.addEventListener('pointerup', e => {
+    dragging = false;
+    svg.classList.remove('dragging');
+    if (state.sel && !selCells(state.sel).length) { state.sel = null; state.flat = null; }
+    renderSelection(); renderIntentRows(); renderView();
   });
 }
 
 function renderSelection() {
   const g = document.getElementById('sel');
   g.innerHTML = '';
-  for (const f of FLATS)
-    document.getElementById(`flat-${f.id}`).classList.toggle('selected', f.id === state.flat);
-  if (!state.cell) return;
-  const [c, r] = state.cell, x = c * CELL, y = r * CELL;
-  g.appendChild(svgEl('rect', { x, y, width: CELL, height: CELL, class: 'sel-cell' }));
-  const mx = x + CELL / 2, my = y + CELL / 2, t = 16;
-  g.appendChild(svgEl('path', {
-    class: 'sel-cross',
-    d: `M${mx - t},${my} H${mx - 6} M${mx + 6},${my} H${mx + t} M${mx},${my - t} V${my - 6} M${mx},${my + 6} V${my + t}`,
+  document.getElementById(`flat-${FLATS[0].id}`).classList.toggle('selected', !!state.sel);
+  if (!state.sel) return;
+  const n = normSel(state.sel);
+  for (const [c, r] of selCells(state.sel))
+    g.appendChild(svgEl('rect', { x: c * CELL, y: r * CELL, width: CELL, height: CELL, class: 'sel-cell' }));
+  g.appendChild(svgEl('rect', {
+    x: n.c0 * CELL, y: n.r0 * CELL,
+    width: (n.c1 - n.c0 + 1) * CELL, height: (n.r1 - n.r0 + 1) * CELL, class: 'sel-rect',
   }));
 }
 
@@ -231,15 +318,17 @@ function renderGlyphs() {
   const g = document.getElementById('glyphs');
   g.innerHTML = '';
   for (const it of state.intents) {
-    const flat = FLATS.find(f => f.id === it.flat);
     const s = CATALOG.find(x => x.id === it.structure);
-    const x = it.cell[0] * CELL, y = it.cell[1] * CELL;
-    g.appendChild(svgEl('rect', {
-      x: x + 3, y: y + 3, width: CELL - 6, height: CELL - 6,
-      class: 'glyph', stroke: flat ? flat.color : '#888',
-    }));
+    const cls = it.done ? 'built' : 'inbuild';
+    for (const [c, r] of it.cells)
+      g.appendChild(svgEl('rect', {
+        x: c * CELL + 2, y: r * CELL + 2, width: CELL - 4, height: CELL - 4,
+        class: `cellfill ${cls}`,
+      }));
+    const gx = (it.anchor[0] + it.fp.cols / 2) * CELL;
+    const gy = (it.anchor[1] + it.fp.rows / 2) * CELL;
     g.appendChild(svgEl('text', {
-      x: x + CELL / 2, y: y + CELL / 2 + 3.5, class: 'glyph-t', fill: flat ? flat.color : '#888',
+      x: gx, y: gy + CELL * 0.14, class: `glyph-t ${cls}`, 'font-size': CELL * 0.42,
     }, s ? s.glyph : '?'));
   }
 }
@@ -248,13 +337,23 @@ function renderGlyphs() {
 
 function renderIntentRows() {
   const s = CATALOG.find(x => x.id === state.structure);
-  const flat = FLATS.find(f => f.id === state.flat);
+  const fp = footprint();
   document.getElementById('iv-structure').textContent = s.name;
-  document.getElementById('iv-flat').textContent = flat ? flat.name : '—';
-  document.getElementById('iv-site').textContent = state.cell ? `${state.cell[0]}·${state.cell[1]}` : '—';
-  document.getElementById('commit').disabled = !(state.flat && state.cell);
+  document.getElementById('iv-flat').textContent = state.flat ? FLATS[0].name : '—';
+  if (state.sel) {
+    const n = normSel(state.sel);
+    const area = selCells(state.sel).length * CELL_M2;
+    document.getElementById('iv-site').textContent =
+      `${n.c1 - n.c0 + 1}×${n.r1 - n.r0 + 1} · ${area} m²`;
+  } else document.getElementById('iv-site').textContent = '—';
+  document.getElementById('iv-fp').textContent =
+    `${fp.cols * fp.rows * CELL_M2} m² · ${fp.cols}×${fp.rows} cells`;
+  const fits = fitsSelection();
+  document.getElementById('commit').disabled = !fits;
+  document.getElementById('fit-hint').textContent =
+    state.sel && !fits ? 'selection is smaller than the footprint or overlaps a build' : '';
   const rn = document.getElementById('render-sub');
-  rn.textContent = flat ? `selected flat · ${flat.note}` : 'selected structure · 3d';
+  rn.textContent = state.sel ? `site 0 · ${FLATS[0].note}` : 'selected structure · 3d';
 }
 
 function renderActions() {
@@ -264,7 +363,8 @@ function renderActions() {
 }
 
 function commit() {
-  if (!(state.flat && state.cell)) return;
+  if (!fitsSelection()) return;
+  const n = normSel(state.sel);
   state.intents.push({
     n: (state.intents[state.intents.length - 1]?.n || 0) + 1,
     ts: Date.now(),
@@ -272,44 +372,78 @@ function commit() {
     structure: state.structure,
     meta: metaLine(),
     config: JSON.parse(JSON.stringify(cfg())),
-    flat: state.flat,
-    cell: state.cell.slice(),
+    flat: FLATS[0].id,
+    anchor: [n.c0, n.r0],
+    fp: footprint(),
+    cells: selCells(state.sel),
+    done: false,
   });
-  save(); renderQueue(); renderGlyphs(); renderStats();
+  state.sel = null;
+  save(); renderAllDynamic();
 }
 
 function removeIntent(n) {
   state.intents = state.intents.filter(i => i.n !== n);
-  save(); renderQueue(); renderGlyphs(); renderStats();
+  save(); renderAllDynamic();
+}
+
+function toggleDone(n) {
+  const it = state.intents.find(i => i.n === n);
+  if (it) it.done = !it.done;
+  save(); renderAllDynamic();
+}
+
+function renderAllDynamic() {
+  renderSelection(); renderQueue(); renderGlyphs(); renderDash();
+  renderStats(); renderIntentRows(); renderView();
 }
 
 function renderQueue() {
   const el = document.getElementById('queue');
   if (!state.intents.length) {
-    el.innerHTML = `<div class="queue-empty">no intents yet — assign a cube to a flat</div>`;
+    el.innerHTML = `<div class="queue-empty">no intents yet — select an area, assign a cube</div>`;
     return;
   }
   el.innerHTML = state.intents.slice().reverse().map(it => {
     const s = CATALOG.find(x => x.id === it.structure);
-    const flat = FLATS.find(f => f.id === it.flat);
     const t = new Date(it.ts);
     const hh = String(t.getHours()).padStart(2, '0'), mm = String(t.getMinutes()).padStart(2, '0');
-    return `<div class="qitem">
+    return `<div class="qitem ${it.done ? 'done' : ''}">
       <div class="q-top"><span class="q-id">#${String(it.n).padStart(3, '0')}</span>
-        <span class="q-act">${it.action}</span> · <span class="q-s">${s.name}</span>
-        <span class="q-arrow">→</span> <span class="q-flat" style="color:${flat ? flat.color : '#888'}">${flat ? flat.name : it.flat}</span>
-        <span class="q-cell">[${it.cell[0]}·${it.cell[1]}]</span>
-        <button class="q-x" data-n="${it.n}">×</button></div>
+        <span class="q-act">${it.done ? 'BUILT' : it.action}</span> · <span class="q-s">${s.name}</span>
+        <span class="q-cell">[${it.anchor[0]}·${it.anchor[1]}] · ${areaOf(it)} m²</span>
+        <button class="q-ok" data-n="${it.n}" title="toggle built">✓</button>
+        <button class="q-x" data-n="${it.n}" title="remove">×</button></div>
       <div class="q-meta">${esc(it.meta)} · ${hh}:${mm}</div>
     </div>`;
   }).join('');
   el.querySelectorAll('.q-x').forEach(b => b.onclick = () => removeIntent(+b.dataset.n));
+  el.querySelectorAll('.q-ok').forEach(b => b.onclick = () => toggleDone(+b.dataset.n));
+}
+
+// ---- dashboard + footer ----
+
+function renderDash() {
+  const d = dashNumbers();
+  const pct = v => PLOT_AREA_M2 ? (v / PLOT_AREA_M2 * 100) : 0;
+  document.getElementById('dash').innerHTML = `
+    <div class="dash-bar">
+      <span class="seg built" style="width:${pct(d.built)}%"></span>
+      <span class="seg inbuild" style="width:${pct(d.inbuild)}%"></span>
+      <span class="seg free" style="width:${pct(d.free)}%"></span>
+    </div>
+    <div class="dash-rows">
+      <span class="d-total">TOTAL ${PLOT_AREA_M2} m²</span>
+      <span class="d-built">BUILT ${d.built} m²</span>
+      <span class="d-inbuild">IN BUILD ${d.inbuild} m²</span>
+      <span class="d-free">FREE ${d.free} m²</span>
+    </div>`;
 }
 
 function renderStats() {
-  const fl = `${FLATS.length} phase-0 ${FLATS.length === 1 ? 'flat' : 'flats'}`;
+  const d = dashNumbers();
   document.getElementById('stats').textContent =
-    `${state.intents.length} intents · ${fl} · ${CATALOG.length} structures`;
+    `${state.intents.length} intents · ${d.built} m² built · ${d.inbuild} m² in build · ${d.free} m² free`;
 }
 
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state.intents)); }
@@ -317,10 +451,9 @@ function save() { localStorage.setItem(LS_KEY, JSON.stringify(state.intents)); }
 function load() {
   try {
     const raw = JSON.parse(localStorage.getItem(LS_KEY)) || [];
-    state.intents = raw
-      .map(it => it.structure === 'atom' ? { ...it, structure: 'cube' } : it)
-      .filter(it => CATALOG.some(s => s.id === it.structure) &&
-                    FLATS.some(f => f.id === it.flat));
+    state.intents = raw.filter(it =>
+      CATALOG.some(s => s.id === it.structure) && FLATS.some(f => f.id === it.flat) &&
+      Array.isArray(it.cells) && Array.isArray(it.anchor) && it.fp);
   } catch { state.intents = []; }
 }
 
@@ -332,7 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('kml-link').href =
     `https://www.google.com/maps/d/viewer?mid=${MY_MAPS_ID}`;
   buildMap();
-  renderCatalog(); renderConfig(); renderView();
-  renderActions(); renderIntentRows(); renderQueue(); renderGlyphs(); renderStats();
+  renderCatalog(); renderConfig(); renderActions();
+  renderAllDynamic();
   document.getElementById('commit').addEventListener('click', commit);
+  document.querySelectorAll('.vchip').forEach(b => b.onclick = () => {
+    state.view = b.dataset.view;
+    renderView();
+  });
 });
