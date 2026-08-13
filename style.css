@@ -149,6 +149,11 @@ button { font-family: var(--mono); cursor: pointer; }
   font-family: var(--mono); font-size: 18px; font-weight: 700;
   letter-spacing: 0.25em; text-anchor: middle; pointer-events: none;
 }
+.place-dot { fill: #94a594; }
+.place-label {
+  fill: #6f7f6f; font-family: var(--mono); font-size: 13px;
+  letter-spacing: 0.06em; text-anchor: middle; pointer-events: none;
+}
 .sel-cell { fill: rgba(85, 215, 232, 0.14); stroke: var(--cyan); stroke-width: 1; }
 .sel-rect { fill: none; stroke: #e8f4e8; stroke-width: 2; stroke-dasharray: 8 5; }
 .cellfill { pointer-events: none; }

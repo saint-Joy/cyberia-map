@@ -5,10 +5,10 @@ Business logic follows the fleets & flats surface: pick a structure,
 pick a site on the open map, tune the build, commit intent. Local
 intent queue, no closed backend.
 
-The map shows the construction site (SITE 0, 0.096 ha per google
-maps) traced point-by-point from the master-plan my-maps screenshot,
-with the transit road, garden roads (2 m wide) and the neighbour
-parcel. North up, 4 m build cell.
+The map shows the construction site: sinwood-25 (spa · community ·
+0.096 ha per google maps), exact geometry from the cyber valley
+my-maps KML (plots layer), with neighbour plots, roads (2 m wide)
+and nearby places. North up, 4 m build cell.
 
 Flow: drag on the map to select an area for construction — the 4 m
 grid highlights free cells; the intent panel shows the structure
@@ -18,9 +18,10 @@ intent to built (✓). The dashboard tracks total / built / in build /
 free m². RENDER switches between the structure solid and the SITE
 view — the plot as a 3d landscape with every placed build.
 
-Regenerate `js/data.js` with `tools/trace_site0.py` (scale is
-anchored to the 0.096 ha area). `tools/gen_data.py` stays for
-pulling any named parcel from the cyber valley KML instead.
+Regenerate `js/data.js` with `tools/gen_data.py <cyber-valley.kml>`
+(the kml is a NetworkLink export of the my-maps; see the generator
+header). `tools/trace_site0.py` stays as the screenshot-tracing
+fallback for parcels not yet in the map.
 
 ## structures
 

@@ -128,9 +128,9 @@ function renderView() {
   if (state.view === 'site') {
     viewer.setModel(Wire3D.buildSite(FLATS[0].pts, state.intents, state.sel, METER, CELL));
     const d = dashNumbers();
-    document.getElementById('render-name').textContent = 'SITE 0';
+    document.getElementById('render-name').textContent = FLATS[0].name;
     document.getElementById('render-meta').textContent =
-      `0.096 ha · ${state.intents.length} builds · ${d.built + d.inbuild} m² allocated`;
+      `${FLATS[0].note} · ${state.intents.length} builds · ${d.built + d.inbuild} m² allocated`;
     return;
   }
   viewer.setModel(Wire3D.build(state.structure, cfg()));
@@ -243,8 +243,12 @@ function buildMap() {
   for (const c of CONTEXT)
     svg.appendChild(svgEl('polygon', {
       points: c.pts.map(p => p.join(',')).join(' '),
-      class: c.kind === 'certificates' ? 'ctx-cert' : 'ctx',
+      class: c.kind === 'plots' ? 'ctx-cert' : 'ctx',
     }));
+  for (const p of PLACES) {
+    svg.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 5, class: 'place-dot' }));
+    svg.appendChild(svgEl('text', { x: p.x, y: p.y - 12, class: 'place-label' }, p.name));
+  }
   for (const f of FLATS) {
     const poly = svgEl('polygon', {
       id: `flat-${f.id}`, points: f.pts.map(p => p.join(',')).join(' '),
@@ -353,7 +357,9 @@ function renderIntentRows() {
   document.getElementById('fit-hint').textContent =
     state.sel && !fits ? 'selection is smaller than the footprint or overlaps a build' : '';
   const rn = document.getElementById('render-sub');
-  rn.textContent = state.sel ? `site 0 · ${FLATS[0].note}` : 'selected structure · 3d';
+  rn.textContent = state.sel
+    ? `${FLATS[0].name.toLowerCase()} · ${FLATS[0].note}`
+    : 'selected structure · 3d';
 }
 
 function renderActions() {
