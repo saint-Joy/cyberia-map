@@ -146,17 +146,17 @@ const Wire3D = (() => {
   }
 
   function pyramidGroups(cfg) {
-    const b = 6, h = 8;
+    const b = cfg.base / 2, h = cfg.base * 2 / 3;
     const groups = [{ color: GREEN, glow: true, edges: [
       ...rectY(0, -b, -b, b, b),
       [-b, 0, -b, 0, h, 0], [b, 0, -b, 0, h, 0], [b, 0, b, 0, h, 0], [-b, 0, b, 0, h, 0]] }];
-    const half = b * (1 - 4 / h);
-    groups.push({ color: DIM, dash: [4, 4], edges: rectY(4, -half, -half, half, half) });
+    const half = b / 2;
+    groups.push({ color: DIM, dash: [4, 4], edges: rectY(h / 2, -half, -half, half, half) });
     return groups;
   }
 
   function sphereGroups(cfg) {
-    const r = 4;
+    const r = cfg.d / 2;
     const upper = { color: cfg.orangery ? GREEN : GRAY, glow: cfg.orangery, edges: [] };
     const lower = { color: cfg.water ? CYAN : GRAY, dash: [4, 4], edges: [] };
     for (const phi of [22.5, 45, 67.5]) {
@@ -178,13 +178,14 @@ const Wire3D = (() => {
 
   const BUILDERS = { cube: cubeGroups, tube: tubeGroups, prysm: prysmGroups,
                      pyramid: pyramidGroups, sphere: sphereGroups };
-  const RADII = { cube: 5.5, tube: c => c.len / 2 + 2, prysm: 6, pyramid: 10, sphere: 6.5 };
+  const RADII = { cube: () => 5.5, tube: c => c.len / 2 + 2, prysm: () => 6,
+                  pyramid: c => c.base * 0.8 + 2, sphere: c => c.d / 2 + 2.5 };
 
   function build(id, cfg) {
-    const groups = [ground(id === 'pyramid' ? 10 : 7, 2), ...BUILDERS[id](cfg)];
-    const radius = typeof RADII[id] === 'function' ? RADII[id](cfg) : RADII[id];
+    const radius = RADII[id](cfg);
+    const groups = [ground(Math.ceil(radius), 2), ...BUILDERS[id](cfg)];
     const cy = { cube: 2, tube: cfg.size === 'M' ? 2 : 1, prysm: cfg.h / 2,
-                 pyramid: 3, sphere: 0 }[id];
+                 pyramid: cfg.base / 4, sphere: 0 }[id];
     return { groups, radius, cy };
   }
 

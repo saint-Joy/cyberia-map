@@ -60,8 +60,8 @@ function footprint() {
     case 'cube':    return { cols: 1, rows: 1 };
     case 'tube':    return { cols: Math.ceil(c.len / 4), rows: 1 };
     case 'prysm':   return { cols: 1, rows: c.modular ? 2 : 1 };
-    case 'pyramid': return { cols: 3, rows: 3 };
-    case 'sphere':  return { cols: 2, rows: 2 };
+    case 'pyramid': return { cols: Math.ceil(c.base / 4), rows: Math.ceil(c.base / 4) };
+    case 'sphere':  return { cols: Math.ceil(c.d / 4), rows: Math.ceil(c.d / 4) };
   }
 }
 
@@ -117,8 +117,8 @@ function metaLine() {
       return `link · ${c.size} ${s}×${s} · ${c.len} m · ${c.content.slice(0, 3).join(', ') || 'empty'}${c.content.length > 3 ? ' +' + (c.content.length - 3) : ''}`;
     }
     case 'prysm': return `module · half-rhomb · h ${c.h} m · ${c.mat.join('+') || 'no mat'} · ${c.modular ? 'modular' : 'monolith'}`;
-    case 'pyramid': return `hub · 12×12 base · ${c.fns.length} functions`;
-    case 'sphere': return `core · r 4 · ${c.water ? 'water store below' : 'below empty'} · ${c.orangery ? 'orangery above' : 'shell above'}`;
+    case 'pyramid': return `hub · ${c.base}×${c.base} m base · ${c.fns.length} functions`;
+    case 'sphere': return `core · ⌀${c.d} m · ${c.water ? 'water store below' : 'below empty'} · ${c.orangery ? 'orangery above' : 'shell above'}`;
   }
 }
 
@@ -181,10 +181,15 @@ function renderConfig() {
     html += `<div class="cfg-row"><span class="cfg-label">MODULAR</span>` +
       chip('YES', c.modular, 'data-mod="1"') + chip('NO', !c.modular, 'data-mod="0"') + `</div>`;
   }
-  if (state.structure === 'pyramid')
+  if (state.structure === 'pyramid') {
+    html += `<div class="cfg-row"><span class="cfg-label">BASE</span>` +
+      [4, 8, 12, 16].map(b => chip(`${b} m`, c.base === b, `data-base="${b}"`)).join('') + `</div>`;
     html += `<div class="cfg-row wrap"><span class="cfg-label">FUNCTIONS</span>` +
       PYRAMID_FN.map(f => chip(f, c.fns.includes(f), `data-fn="${esc(f)}"`)).join('') + `</div>`;
+  }
   if (state.structure === 'sphere') {
+    html += `<div class="cfg-row"><span class="cfg-label">DIAMETER</span>` +
+      [4, 8, 12].map(d => chip(`${d} m`, c.d === d, `data-d="${d}"`)).join('') + `</div>`;
     html += `<div class="cfg-row"><span class="cfg-label">BELOW</span>` +
       chip('WATER STORAGE', c.water, 'data-sph="water"') + `</div>`;
     html += `<div class="cfg-row"><span class="cfg-label">ABOVE</span>` +
@@ -209,6 +214,8 @@ function wireConfig(el, c) {
   el.querySelectorAll('[data-mat]').forEach(b => b.onclick = () => { toggle(c.mat, b.dataset.mat); refresh(); });
   el.querySelectorAll('[data-mod]').forEach(b => b.onclick = () => { c.modular = b.dataset.mod === '1'; refresh(); });
   el.querySelectorAll('[data-fn]').forEach(b => b.onclick = () => { toggle(c.fns, b.dataset.fn); refresh(); });
+  el.querySelectorAll('[data-base]').forEach(b => b.onclick = () => { c.base = +b.dataset.base; refresh(); });
+  el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { c.d = +b.dataset.d; refresh(); });
   el.querySelectorAll('[data-sph]').forEach(b => b.onclick = () => { c[b.dataset.sph] = !c[b.dataset.sph]; refresh(); });
 }
 
