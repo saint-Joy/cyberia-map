@@ -51,8 +51,8 @@ const CATALOG = [
   {{ id: 'cube',     name: 'CUBE-4',   sub: '4×4×4 m cell · 1 cell',       tag: 'CELL',   status: 'P0', glyph: 'C' }},
   {{ id: 'tube',     name: 'TUBE',     sub: 'S/M · 2–4 m · length free',   tag: 'LINK',   status: 'P0', glyph: 'T' }},
   {{ id: 'prysm',    name: 'PRYSM',    sub: 'half-rhomb · h 2/4 m',        tag: 'MODULE', status: 'P1', glyph: 'P' }},
-  {{ id: 'pyramid',  name: 'PYRAMID',  sub: 'hub · base set in config',    tag: 'HUB',    status: 'P1', glyph: 'Y' }},
-  {{ id: 'sphere',   name: 'SPHERE',   sub: 'core · ⌀ set in config',      tag: 'CORE',   status: 'P1', glyph: 'S' }},
+  {{ id: 'pyramid',  name: 'PYRAMID',  sub: '4×4×4 m · 1 cell',            tag: 'HUB',    status: 'P1', glyph: 'Y' }},
+  {{ id: 'sphere',   name: 'SPHERE',   sub: '⌀4 m · 1 cell',               tag: 'CORE',   status: 'P1', glyph: 'S' }},
 ];
 
 const ACTIONS = ['SURVEY', 'CLEAR', 'PLANT', 'HAUL', 'WATCH', 'BUILD'];
@@ -100,8 +100,8 @@ function defaultConfig(id) {{
     case 'cube':     return {{ mode: 'unit', pax: 1, purpose: '', walls: [] }};
     case 'tube':     return {{ size: 'S', len: 8, content: ['closed pond', 'glass path top'] }};
     case 'prysm':    return {{ h: 2, mat: ['wood', 'glass'], modular: true }};
-    case 'pyramid':  return {{ base: 8, fns: ['reception', 'shop', 'cafe'] }};
-    case 'sphere':   return {{ d: 8, water: true, orangery: true }};
+    case 'pyramid':  return {{ base: 4, fns: ['reception', 'shop', 'cafe'] }};
+    case 'sphere':   return {{ d: 4, water: true, orangery: true }};
     default:         return {{}};
   }}
 }}

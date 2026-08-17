@@ -1,11 +1,34 @@
-// wire3d — zero-dependency wireframe renderer (canvas 2d, perspective, auto-orbit)
+// wire3d — zero-dependency wireframe renderer (canvas 2d, axonometric, auto-orbit)
 // model = { groups: [{ color, dash, width, glow, edges: [[x1,y1,z1,x2,y2,z2],…] }], radius, cy }
 // axes: Y up, ground at y = 0. all solids are canonical: cube, prism, pyramid, sphere.
+// projection is orthographic (elevation 30°, azimuth orbits): parallel edges stay
+// parallel and vertical edges stay vertical — no perspective skew.
 
 const Wire3D = (() => {
   const GREEN = '#52e05a', DIM = '#23532a', ORANGE = '#e08a3c',
         CYAN = '#55d7e8', GRAY = '#6b756d', BRIGHT = '#8df595';
   const MATCOL = { wood: ORANGE, glass: CYAN, metal: GRAY };
+
+  const ELEV = Math.PI / 6; // 30° elevation, fixed
+
+  // pure: model + camera azimuth + viewport → groups of 2d segments [x1,y1,x2,y2]
+  // orthographic, so parallel 3d edges stay parallel and verticals stay vertical
+  function project(model, angle, w, h) {
+    const r = model.radius, cy = model.cy || 0;
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+    const cE = Math.cos(ELEV), sE = Math.sin(ELEV);
+    const scale = Math.min(w, h) / (r * 2.4);
+    const ox = w / 2, oy = h * 0.56;
+    const p = (x, y, z) =>
+      [ox + (x * ca + z * sa) * scale, oy - ((y - cy) * cE + (z * ca - x * sa) * sE) * scale];
+    return model.groups.map(g => ({
+      ...g,
+      segs: g.edges.map(e => {
+        const a = p(e[0], e[1], e[2]), b = p(e[3], e[4], e[5]);
+        return [a[0], a[1], b[0], b[1]];
+      }),
+    }));
+  }
 
   function attach(canvas) {
     const ctx = canvas.getContext('2d');
@@ -23,31 +46,14 @@ const Wire3D = (() => {
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
       if (!model) return;
-      const r = model.radius, cy = model.cy || 0;
-      const ca = Math.cos(angle), sa = Math.sin(angle);
-      const tilt = 0.5, cT = Math.cos(tilt), sT = Math.sin(tilt);
-      const f = r * 4.2, scale = Math.min(w, h) / (r * 2.7);
-      const ox = w / 2, oy = h * 0.55;
-
-      function proj(x, y, z) {
-        const y0 = y - cy;
-        const X = x * ca - z * sa, Z = x * sa + z * ca;
-        const Y = y0 * cT - Z * sT, Zc = y0 * sT + Z * cT;
-        const p = f / (f + Zc);
-        return [ox + X * scale * p, oy - Y * scale * p];
-      }
-
-      for (const g of model.groups) {
+      for (const g of project(model, angle, w, h)) {
         ctx.strokeStyle = g.color;
         ctx.lineWidth = (g.width || 1.4) * dpr;
         ctx.setLineDash(g.dash ? g.dash.map(d => d * dpr) : []);
         ctx.shadowBlur = (g.glow ? 9 : 0) * dpr;
         ctx.shadowColor = g.color;
         ctx.beginPath();
-        for (const e of g.edges) {
-          const a = proj(e[0], e[1], e[2]), b = proj(e[3], e[4], e[5]);
-          ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
-        }
+        for (const s of g.segs) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
         ctx.stroke();
       }
       ctx.setLineDash([]); ctx.shadowBlur = 0;
@@ -146,7 +152,7 @@ const Wire3D = (() => {
   }
 
   function pyramidGroups(cfg) {
-    const b = cfg.base / 2, h = cfg.base * 2 / 3;
+    const b = cfg.base / 2, h = cfg.base; // square base, height = side
     const groups = [{ color: GREEN, glow: true, edges: [
       ...rectY(0, -b, -b, b, b),
       [-b, 0, -b, 0, h, 0], [b, 0, -b, 0, h, 0], [b, 0, b, 0, h, 0], [-b, 0, b, 0, h, 0]] }];
@@ -178,14 +184,14 @@ const Wire3D = (() => {
 
   const BUILDERS = { cube: cubeGroups, tube: tubeGroups, prysm: prysmGroups,
                      pyramid: pyramidGroups, sphere: sphereGroups };
-  const RADII = { cube: () => 5.5, tube: c => c.len / 2 + 2, prysm: () => 6,
-                  pyramid: c => c.base * 0.8 + 2, sphere: c => c.d / 2 + 2.5 };
+  const RADII = { cube: () => 5, tube: c => c.len / 2 + 2, prysm: () => 5,
+                  pyramid: c => c.base + 1, sphere: c => c.d / 2 + 3 };
 
   function build(id, cfg) {
     const radius = RADII[id](cfg);
     const groups = [ground(Math.ceil(radius), 2), ...BUILDERS[id](cfg)];
     const cy = { cube: 2, tube: cfg.size === 'M' ? 2 : 1, prysm: cfg.h / 2,
-                 pyramid: cfg.base / 4, sphere: 0 }[id];
+                 pyramid: cfg.base / 2, sphere: 0 }[id];
     return { groups, radius, cy };
   }
 
@@ -231,5 +237,5 @@ const Wire3D = (() => {
     return { groups, radius, cy: 3 };
   }
 
-  return { attach, build, buildSite };
+  return { attach, build, buildSite, project };
 })();

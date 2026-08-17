@@ -1,0 +1,149 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>cyberia map — smoke test</title>
+<link rel="stylesheet" href="../style.css"></head>
+<body>
+<!-- headless run:
+     brave --headless --disable-gpu --dump-dom --virtual-time-budget=5000 test/smoke.html -->
+<div style="display:none">
+<div id="struct-list"></div><span id="render-sub"></span><canvas id="view3d"></canvas>
+<div id="render-name"></div><div id="render-meta"></div><div id="config"></div>
+<svg id="map"></svg><a id="kml-link"></a>
+<span id="iv-structure"></span><span id="iv-flat"></span><span id="iv-site"></span><span id="iv-fp"></span>
+<div id="actions"></div><button id="commit"></button><div id="fit-hint"></div>
+<div id="queue"></div><span id="stats"></span><div id="dash"></div>
+<span id="view-toggle"><button class="vchip" data-view="structure"></button><button class="vchip" data-view="site"></button></span>
+</div>
+<pre id="out">PENDING</pre>
+<script src="../js/data.js"></script>
+<script src="../js/wire3d.js"></script>
+<script src="../js/app.js"></script>
+<script>
+window.addEventListener('load', () => {
+  const out = [];
+  let failed = false;
+  const eq = (got, want, what) => { if (got !== want) throw new Error(`${what}: ${got} != ${want}`); };
+  const fail = e => {
+    failed = true;
+    document.getElementById('out').textContent = 'FAIL: ' + e.message + '\n' + out.join('\n');
+  };
+  try {
+    localStorage.removeItem('cyberia-map:intents:v2');
+    state.intents = [];
+
+    // every structure builds a non-empty model
+    for (const s of CATALOG) {
+      const m = Wire3D.build(s.id, defaultConfig(s.id));
+      const n = m.groups.reduce((a, g) => a + g.edges.length, 0);
+      if (!(n > 0 && m.radius > 0)) throw new Error(s.id + ' empty model');
+      out.push(s.id + ': ' + m.groups.length + ' groups, ' + n + ' edges');
+    }
+
+    // canonical footprints (spec: cube 4×4×4, pyramid 4×4×4, sphere ⌀4)
+    const fpOf = id => { state.structure = id; return footprint(); };
+    eq(JSON.stringify(fpOf('cube')), '{"cols":1,"rows":1}', 'cube footprint');
+    eq(JSON.stringify(fpOf('pyramid')), '{"cols":1,"rows":1}', 'pyramid footprint');
+    eq(JSON.stringify(fpOf('sphere')), '{"cols":1,"rows":1}', 'sphere footprint');
+    state.structure = 'tube'; cfg().len = 8;
+    eq(JSON.stringify(footprint()), '{"cols":2,"rows":1}', 'tube 8 m footprint');
+
+    // orthographic projection: verticals stay vertical and equal, parallels stay parallel
+    const cubeModel = Wire3D.build('cube', { mode: 'unit', pax: 1, purpose: '', walls: [] });
+    const dir3 = e => {
+      const d = [e[3] - e[0], e[4] - e[1], e[5] - e[2]];
+      const L = Math.hypot(...d);
+      return d.map(v => (v / L).toFixed(3)).join(',');
+    };
+    for (const ang of [0, 0.4, 0.8, 1.9, 3.3, 5.2]) {
+      const gs = Wire3D.project(cubeModel, ang, 400, 300);
+      const solid = gs[gs.length - 1];               // the cube body, not the ground grid
+      const edges = cubeModel.groups[cubeModel.groups.length - 1].edges;
+      const vert = [];
+      const byDir = {};
+      solid.segs.forEach((s, i) => {
+        const e = edges[i];
+        const len = Math.hypot(s[2] - s[0], s[3] - s[1]);
+        // a 3d-vertical edge (only y changes) must stay vertical on screen at any azimuth
+        if (e[0] === e[3] && e[2] === e[5] && e[1] !== e[4]) {
+          if (Math.abs(s[2] - s[0]) > 1e-6)
+            throw new Error(`angle ${ang}: vertical edge tilted by ${(s[2] - s[0]).toFixed(3)} px`);
+          vert.push(len);
+        }
+        const k = dir3(e);
+        (byDir[k] = byDir[k] || []).push([(s[2] - s[0]) / len, (s[3] - s[1]) / len, len]);
+      });
+      if (vert.length !== 4) throw new Error(`angle ${ang}: ${vert.length} vertical edges, want 4`);
+      const spread = Math.max(...vert) - Math.min(...vert);
+      if (spread > 1e-6) throw new Error(`angle ${ang}: verticals differ by ${spread}`);
+      for (const k in byDir) {
+        const g = byDir[k];
+        for (const s of g) {
+          if (Math.abs(s[0] - g[0][0]) > 1e-6 || Math.abs(s[1] - g[0][1]) > 1e-6)
+            throw new Error(`angle ${ang}: parallel 3d edges ${k} not parallel on screen`);
+          if (Math.abs(s[2] - g[0][2]) > 1e-6)
+            throw new Error(`angle ${ang}: parallel edges ${k} differ in length`);
+        }
+      }
+    }
+    out.push('projection: 6 azimuths — 4 equal verticals stay vertical, parallels stay parallel');
+
+    // config panels render for every structure
+    for (const s of CATALOG) {
+      state.structure = s.id; renderConfig();
+      if (!document.getElementById('config').innerHTML.length) throw new Error(s.id + ' config empty');
+    }
+    state.structure = 'cube'; cfg().mode = 'wallgrid'; cfg().walls = ['1,2']; renderConfig(); renderView();
+    cfg().mode = 'unit';
+
+    // selection at plot centroid, 3×3 → cube fits
+    const f0 = FLATS[0];
+    const cx = f0.pts.reduce((a, p) => a + p[0], 0) / f0.pts.length;
+    const cy = f0.pts.reduce((a, p) => a + p[1], 0) / f0.pts.length;
+    const cc = Math.floor(cx / CELL), rr = Math.floor(cy / CELL);
+    if (!cellInPlot(cc, rr)) throw new Error('centroid cell not in plot');
+    state.flat = f0.id;
+    state.sel = { c0: cc - 1, r0: rr - 1, c1: cc + 1, r1: rr + 1 };
+    renderIntentRows();
+    if (document.getElementById('commit').disabled) throw new Error('cube should fit 3×3');
+    const selArea = selCells(state.sel).length * 16;
+    commit();
+    if (state.intents.length !== 1 || state.sel !== null) throw new Error('commit #1');
+
+    // tube len 8 → 2×1
+    state.structure = 'tube'; cfg().len = 8;
+    state.flat = f0.id;
+    state.sel = { c0: cc - 1, r0: rr + 2, c1: cc, r1: rr + 2 };
+    renderIntentRows();
+    if (!fitsSelection()) throw new Error('tube 2×1 should fit');
+    commit();
+    if (state.intents.length !== 2) throw new Error('commit #2');
+
+    // overlap is rejected
+    state.sel = { c0: cc - 1, r0: rr - 1, c1: cc - 1, r1: rr - 1 };
+    if (fitsSelection()) throw new Error('overlap accepted');
+    state.sel = null;
+
+    // dashboard
+    toggleDone(1);
+    const d = dashNumbers();
+    eq(d.built, selArea, 'built area');
+    eq(d.built + d.inbuild + d.free, PLOT_AREA_M2, 'dash sum');
+    if (!document.getElementById('dash').innerHTML.includes('BUILT')) throw new Error('dash render');
+
+    // site 3d with builds
+    const site = Wire3D.buildSite(f0.pts, state.intents, null, METER, CELL);
+    if (!site.groups.length || !(site.radius > 0)) throw new Error('site model');
+
+    removeIntent(2);
+    eq(state.intents.length, 1, 'remove intent');
+
+    // storage filter drops malformed rows
+    localStorage.setItem('cyberia-map:intents:v2', JSON.stringify([{ structure: 'cube', flat: 'sinwood-25' }]));
+    load();
+    eq(state.intents.length, 0, 'storage filter');
+
+    out.push('footprints: ok; config: ok; wallgrid: ok; select+fit: ok; commit ×2: ok; overlap block: ok');
+    out.push('done toggle: ok; dash sum: ok; site 3d: ok; remove: ok; storage filter: ok');
+    document.getElementById('out').textContent = 'ALL-PASS\n' + out.join('\n');
+  } catch (e) { fail(e); }
+});
+</script></body></html>

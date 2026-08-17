@@ -12,11 +12,16 @@ and nearby places. North up, 4 m build cell.
 
 Flow: drag on the map to select an area for construction — the 4 m
 grid highlights free cells; the intent panel shows the structure
-footprint (cube 4×4 = 16 m², tube len×4, pyramid 12×12, …) against
+footprint (cube 4×4 = 16 m² = 1 cell, tube length × 4 m, …) against
 the selection; commit reserves the cells. The queue toggles each
 intent to built (✓). The dashboard tracks total / built / in build /
 free m². RENDER switches between the structure solid and the SITE
-view — the plot as a 3d landscape with every placed build.
+view — the plot as a 3d landscape with every placed build. The 3d is
+orthographic (30° elevation, orbiting azimuth): parallel edges stay
+parallel, so nothing skews.
+
+`test/smoke.html` is the smoke test — open it, or run headless:
+`brave --headless --disable-gpu --dump-dom test/smoke.html`.
 
 Regenerate `js/data.js` with `tools/gen_data.py <cyber-valley.kml>`
 (the kml is a NetworkLink export of the my-maps; see the generator
@@ -32,10 +37,14 @@ fallback for parcels not yet in the map.
   flowers, bees, birds, rabbits, chicks, rainbow python, flying fox
 - prysm — isosceles triangle as half-rhomb, centered; h 2 / 4 m;
   wood, glass, metal; modular yes/no
-- pyramid — hub: reception, shop, grill, cafe, organics, tools, tech,
-  accums, chargers, delivery, post, play zone, outfit, fabrics,
-  leather, jewels, robots, sweets
-- sphere — half sphere underground (water storage), orangery above
+- pyramid — square base 4×4×4 m; hub: reception, shop, grill, cafe,
+  organics, tools, tech, accums, chargers, delivery, post, play zone,
+  outfit, fabrics, leather, jewels, robots, sweets
+- sphere — ⌀4 m: half sphere underground (water storage), orangery above
+
+Sizes above are the spec. Where a size is not fixed by the spec (tube
+length, and scaling pyramid/sphere beyond the 4 m module), it is a
+config choice in the intent panel, not a built-in assumption.
 
 ## stack
 
