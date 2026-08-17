@@ -18,7 +18,8 @@ intent to built (✓). The dashboard tracks total / built / in build /
 free m². RENDER switches between the structure solid and the SITE
 view — the plot as a 3d landscape with every placed build. The 3d is
 orthographic (30° elevation, orbiting azimuth): parallel edges stay
-parallel, so nothing skews.
+parallel, so nothing skews. Depth is read from brightness — far edges
+dim, near edges bright — so a solid stays legible at any azimuth.
 
 `test/smoke.html` is the smoke test — open it, or run headless:
 `brave --headless --disable-gpu --dump-dom test/smoke.html`.

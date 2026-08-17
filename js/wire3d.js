@@ -11,7 +11,8 @@ const Wire3D = (() => {
 
   const ELEV = Math.PI / 6; // 30° elevation, fixed
 
-  // pure: model + camera azimuth + viewport → groups of 2d segments [x1,y1,x2,y2]
+  // pure: model + camera azimuth + viewport → groups of 2d segments
+  // [x1, y1, x2, y2, nearness] where nearness 0 = farthest, 1 = closest to camera.
   // orthographic, so parallel 3d edges stay parallel and verticals stay vertical
   function project(model, angle, w, h) {
     const r = model.radius, cy = model.cy || 0;
@@ -19,20 +20,29 @@ const Wire3D = (() => {
     const cE = Math.cos(ELEV), sE = Math.sin(ELEV);
     const scale = Math.min(w, h) / (r * 2.4);
     const ox = w / 2, oy = h * 0.56;
+    const depth = (x, y, z) => (y - cy) * sE - (z * ca - x * sa) * cE; // toward camera
     const p = (x, y, z) =>
       [ox + (x * ca + z * sa) * scale, oy - ((y - cy) * cE + (z * ca - x * sa) * sE) * scale];
-    return model.groups.map(g => ({
+
+    let lo = Infinity, hi = -Infinity;
+    const out = model.groups.map(g => ({
       ...g,
       segs: g.edges.map(e => {
         const a = p(e[0], e[1], e[2]), b = p(e[3], e[4], e[5]);
-        return [a[0], a[1], b[0], b[1]];
+        const d = (depth(e[0], e[1], e[2]) + depth(e[3], e[4], e[5])) / 2;
+        if (d < lo) lo = d;
+        if (d > hi) hi = d;
+        return [a[0], a[1], b[0], b[1], d];
       }),
     }));
+    const span = hi - lo || 1;
+    for (const g of out) for (const s of g.segs) s[4] = (s[4] - lo) / span;
+    return out;
   }
 
   function attach(canvas) {
     const ctx = canvas.getContext('2d');
-    let model = null, angle = 0.8, last = 0;
+    let model = null, angle = 0.55, last = 0; // 0.55 rad: 3/4 view, no edge collapses
 
     function fit() {
       const dpr = window.devicePixelRatio || 1;
@@ -46,17 +56,25 @@ const Wire3D = (() => {
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
       if (!model) return;
+      // three depth passes: far edges dimmer, so the solid reads at any azimuth
+      const BANDS = [[0.34, 0.4], [0.67, 0.7], [1.01, 1]];
       for (const g of project(model, angle, w, h)) {
         ctx.strokeStyle = g.color;
         ctx.lineWidth = (g.width || 1.4) * dpr;
         ctx.setLineDash(g.dash ? g.dash.map(d => d * dpr) : []);
         ctx.shadowBlur = (g.glow ? 9 : 0) * dpr;
         ctx.shadowColor = g.color;
-        ctx.beginPath();
-        for (const s of g.segs) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
-        ctx.stroke();
+        let from = -0.01;
+        for (const [upTo, alpha] of BANDS) {
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          for (const s of g.segs)
+            if (s[4] > from && s[4] <= upTo) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); }
+          ctx.stroke();
+          from = upTo;
+        }
       }
-      ctx.setLineDash([]); ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.shadowBlur = 0;
     }
 
     function frame(t) {
@@ -172,14 +190,12 @@ const Wire3D = (() => {
     return groups;
   }
 
+  // square base, height = side: 4 base edges + 4 lateral edges, nothing else
   function pyramidGroups(cfg) {
-    const b = cfg.base / 2, h = cfg.base; // square base, height = side
-    const groups = [{ color: GREEN, glow: true, edges: [
+    const b = cfg.base / 2, h = cfg.base;
+    return [{ color: GREEN, glow: true, edges: [
       ...rectY(0, -b, -b, b, b),
       [-b, 0, -b, 0, h, 0], [b, 0, -b, 0, h, 0], [b, 0, b, 0, h, 0], [-b, 0, b, 0, h, 0]] }];
-    const half = b / 2;
-    groups.push({ color: DIM, dash: [4, 4], edges: rectY(h / 2, -half, -half, half, half) });
-    return groups;
   }
 
   function sphereGroups(cfg) {
