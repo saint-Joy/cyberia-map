@@ -91,7 +91,26 @@ window.addEventListener('load', () => {
       state.structure = s.id; renderConfig();
       if (!document.getElementById('config').innerHTML.length) throw new Error(s.id + ' config empty');
     }
-    state.structure = 'cube'; cfg().mode = 'wallgrid'; cfg().walls = ['1,2']; renderConfig(); renderView();
+    // cube net: 6 faces × 16 panels, painted cells land on the right face in 3d
+    state.structure = 'cube';
+    cfg().mode = 'wallgrid';
+    cfg().cells = { 'front:0:1': { t: 'wall', m: 'wood' }, 'top:2:2': { t: 'open' } };
+    renderConfig(); renderView();
+    const netHtmlOut = document.getElementById('config').innerHTML;
+    eq((netHtmlOut.match(/data-cell="/g) || []).length, 96, 'net panel count');
+    for (const f of ['top', 'left', 'front', 'right', 'back', 'bottom'])
+      if (!netHtmlOut.includes(`data-cell="${f}:3:3"`)) throw new Error('net missing face ' + f);
+    const painted = Wire3D.build('cube', cfg());
+    const opening = painted.groups.find(g => g.dash && g.dash[0] === 3);
+    if (!opening) throw new Error('opening not rendered');
+    for (const e of opening.edges)
+      if (e[1] !== 4 || e[4] !== 4) throw new Error('top-face opening is not on y=4');
+    const wood = painted.groups.find(g => g.color === matOf('wood').color);
+    if (!wood) throw new Error('wood panel not rendered');
+    for (const e of wood.edges)
+      if (Math.abs(e[2] - 2) > 1e-9 || Math.abs(e[5] - 2) > 1e-9)
+        throw new Error('front-face panel is not on z=2');
+    out.push('net: 96 panels over 6 faces; painted cells land on their face in 3d');
     cfg().mode = 'unit';
 
     // selection at plot centroid, 3×3 → cube fits

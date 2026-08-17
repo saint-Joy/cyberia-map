@@ -256,14 +256,29 @@ button { font-family: var(--mono); cursor: pointer; }
 .cfg-row input[type="text"]::placeholder { color: var(--dim2); }
 .cfg-row input[type="text"]:focus { border-color: var(--green); }
 
-.wallgrid {
-  display: grid; grid-template-columns: repeat(4, 22px); gap: 3px;
+.cfg-row.col { flex-direction: column; align-items: flex-start; gap: 8px; }
+.cfg-row.muted .chip-btn { opacity: 0.45; }
+
+.chip-btn.mat { display: inline-flex; align-items: center; gap: 5px; }
+.chip-btn.mat i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+
+/* 2d unfolding of the cube — six faces, 1×1 m panels */
+.net { display: flex; flex-direction: column; gap: 7px; }
+.net-row { display: flex; gap: 7px; }
+.face { width: 78px; }
+.face.ghost { visibility: hidden; }
+.face-cap {
+  font-size: 7.5px; letter-spacing: 0.14em; color: var(--dim2);
+  text-align: center; padding-bottom: 3px;
 }
-.wg {
-  width: 22px; height: 22px; border: 1px solid var(--line2);
-  background: var(--panel2); border-radius: 3px;
+.fgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+.nc {
+  aspect-ratio: 1; padding: 0; border-radius: 2px;
+  border: 1px solid var(--line2); background: var(--panel2);
+  transition: border-color 0.1s;
 }
-.wg.on { background: var(--green-dk); border-color: var(--green); box-shadow: 0 0 6px rgba(82, 224, 90, 0.3); }
+.nc:hover { border-color: var(--dim); }
+.nc.open { background: transparent; border-style: dashed; border-color: var(--cyan); }
 
 #commit {
   width: 100%; margin-top: 14px;

@@ -126,19 +126,61 @@ const Wire3D = (() => {
 
   // ---- structures: canonical solids ----
 
+  // the six faces of the 4 m cube, as origin + column/row unit vectors (metres).
+  // same unfolding the config net shows: top over front, bottom under it,
+  // left · front · right · back in a strip.
+  const FACES = {
+    top:    { o: [-2, 4, -2], u: [1, 0, 0],  v: [0, 0, 1] },
+    left:   { o: [-2, 4, -2], u: [0, 0, 1],  v: [0, -1, 0] },
+    front:  { o: [-2, 4,  2], u: [1, 0, 0],  v: [0, -1, 0] },
+    right:  { o: [ 2, 4,  2], u: [0, 0, -1], v: [0, -1, 0] },
+    back:   { o: [ 2, 4, -2], u: [-1, 0, 0], v: [0, -1, 0] },
+    bottom: { o: [-2, 0,  2], u: [1, 0, 0],  v: [0, 0, -1] },
+  };
+
+  const matColor = id => (typeof WALL_MATERIALS !== 'undefined'
+    ? (WALL_MATERIALS.find(m => m.id === id) || {}).color : null) || BRIGHT;
+
+  // point on a face at column k, row l (both in metres from the face origin)
+  function onFace(face, k, l) {
+    const f = FACES[face];
+    return [f.o[0] + f.u[0] * k + f.v[0] * l,
+            f.o[1] + f.u[1] * k + f.v[1] * l,
+            f.o[2] + f.u[2] * k + f.v[2] * l];
+  }
+
+  // one 1×1 m panel on a face, inset so neighbours stay readable
+  function panel(face, r, c, inset) {
+    const lo = inset / 2, hi = 1 - inset / 2;
+    const q = [onFace(face, c + lo, r + lo), onFace(face, c + hi, r + lo),
+               onFace(face, c + hi, r + hi), onFace(face, c + lo, r + hi)];
+    return q.map((p, i) => [...p, ...q[(i + 1) % 4]]);
+  }
+
   function cubeGroups(cfg) {
     const groups = [{ color: GREEN, glow: true, edges: box(0, 2, 0, 4, 4, 4) }];
-    if (cfg.mode === 'wallgrid') {
-      const lat = { color: DIM, dash: [2, 4], edges: [] };
-      for (let i = -1; i <= 1; i++) lat.edges.push([i, 0.02, -2, i, 0.02, 2], [-2, 0.02, i, 2, 0.02, i]);
-      groups.push(lat);
-      const walls = { color: BRIGHT, edges: [] };
-      for (const key of cfg.walls) {
-        const [r, c] = key.split(',').map(Number);
-        walls.edges.push(...box(c - 1.5, 2, r - 1.5, 1, 4, 1));
-      }
-      if (walls.edges.length) groups.push(walls);
+    if (cfg.mode !== 'wallgrid') return groups;
+
+    const cells = cfg.cells || {};
+    const seams = { color: '#1d3524', width: 1, edges: [] }; // 1 m panel seams
+    for (const face in FACES)
+      for (let i = 1; i < 4; i++)
+        seams.edges.push([...onFace(face, i, 0), ...onFace(face, i, 4)],
+                         [...onFace(face, 0, i), ...onFace(face, 4, i)]);
+    groups.push(seams);
+
+    const byColor = {}, openings = { color: CYAN, dash: [3, 3], width: 1.6, edges: [] };
+    for (const key in cells) {
+      const [face, r, c] = key.split(':');
+      if (!FACES[face]) continue;
+      const cell = cells[key];
+      if (cell.t === 'open') { openings.edges.push(...panel(face, +r, +c, 0.28)); continue; }
+      const col = matColor(cell.m);
+      (byColor[col] = byColor[col] || { color: col, width: 1.6, edges: [] })
+        .edges.push(...panel(face, +r, +c, 0.16));
     }
+    groups.push(...Object.values(byColor));
+    if (openings.edges.length) groups.push(openings);
     return groups;
   }
 

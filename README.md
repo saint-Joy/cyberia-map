@@ -32,7 +32,12 @@ fallback for parcels not yet in the map.
 ## structures
 
 - cube — 4×4×4 multipurpose cell: unit (1/2-pax), room (purpose = free
-  prompt), custom wall grid 1×1×1
+  prompt), or wall grid — a 2d unfolding of the cube (top over front,
+  bottom under it, left · front · right · back in a strip), 6 faces ×
+  16 panels of 1×1 m. Each panel is painted with a tool — wall or
+  opening — and a material: bioreactor, roman concrete, wood,
+  polycarbonate, frame, glass. Painted panels appear on the matching
+  face in the 3d view, openings dashed
 - tube — living connector, arched: straight walls up to half height,
   semicircular vault above (hence the name); S 2 m / M 4 m span and
   height, free length. Fill: closed pond, glass path top,

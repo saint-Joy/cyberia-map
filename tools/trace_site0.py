@@ -71,6 +71,16 @@ const PYRAMID_FN = [
 
 const PRYSM_MAT = ['wood', 'glass', 'metal'];
 
+// cube skin materials — one source of truth for the net swatches and the 3d
+const WALL_MATERIALS = [
+  {{ id: 'bioreactor',    name: 'BIOREACTOR',    color: '#4fd08a' }},
+  {{ id: 'concrete',      name: 'ROMAN CONCRETE', color: '#9aa39a' }},
+  {{ id: 'wood',          name: 'WOOD',          color: '#e08a3c' }},
+  {{ id: 'polycarbonate', name: 'POLYCARBONATE', color: '#7ad7f0' }},
+  {{ id: 'frame',         name: 'FRAME',         color: '#8fa0c8' }},
+  {{ id: 'glass',         name: 'GLASS',         color: '#dff3ff' }},
+];
+
 // map viewport: {W} × {H} units = {FRAME[0] / PX_PER_M:.1f} × {FRAME[1] / PX_PER_M:.1f} m
 const MAP_W = {W}, MAP_H = {H}, CELL = {SCALE * 4:.0f}; // cell = 4 m
 const METER = {SCALE}; // svg units per meter
@@ -97,7 +107,7 @@ const MY_MAPS_ID = '1txZioQKBBvOdmox1Had5aI-Zz4kUEJI';
 
 function defaultConfig(id) {{
   switch (id) {{
-    case 'cube':     return {{ mode: 'unit', pax: 1, purpose: '', walls: [] }};
+    case 'cube':     return {{ mode: 'unit', pax: 1, purpose: '', cells: {{}} }};
     case 'tube':     return {{ size: 'S', len: 8, content: ['closed pond', 'glass path top'] }};
     case 'prysm':    return {{ h: 4, mat: ['wood', 'glass'], modular: false }};
     case 'pyramid':  return {{ base: 4, fns: ['reception', 'shop', 'cafe'] }};

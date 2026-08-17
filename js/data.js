@@ -27,6 +27,16 @@ const PYRAMID_FN = [
 
 const PRYSM_MAT = ['wood', 'glass', 'metal'];
 
+// cube skin materials — one source of truth for the net swatches and the 3d
+const WALL_MATERIALS = [
+  { id: 'bioreactor',    name: 'BIOREACTOR',    color: '#4fd08a' },
+  { id: 'concrete',      name: 'ROMAN CONCRETE', color: '#9aa39a' },
+  { id: 'wood',          name: 'WOOD',          color: '#e08a3c' },
+  { id: 'polycarbonate', name: 'POLYCARBONATE', color: '#7ad7f0' },
+  { id: 'frame',         name: 'FRAME',         color: '#8fa0c8' },
+  { id: 'glass',         name: 'GLASS',         color: '#dff3ff' },
+];
+
 // map viewport: 1176 × 1086 units = 73.5 × 67.9 m
 const MAP_W = 1176, MAP_H = 1086, CELL = 64; // cell = 4 m
 const METER = 16.0; // svg units per meter
@@ -53,7 +63,7 @@ const MY_MAPS_ID = '1txZioQKBBvOdmox1Had5aI-Zz4kUEJI';
 
 function defaultConfig(id) {
   switch (id) {
-    case 'cube':     return { mode: 'unit', pax: 1, purpose: '', walls: [] };
+    case 'cube':     return { mode: 'unit', pax: 1, purpose: '', cells: {} };
     case 'tube':     return { size: 'S', len: 8, content: ['closed pond', 'glass path top'] };
     case 'prysm':    return { h: 4, mat: ['wood', 'glass'], modular: false };
     case 'pyramid':  return { base: 4, fns: ['reception', 'shop', 'cafe'] };

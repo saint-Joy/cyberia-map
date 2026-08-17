@@ -1,7 +1,7 @@
 // cyberia master map — ui state, area selection, intent queue, dashboard
-/* global CATALOG, ACTIONS, TUBE_CONTENT, PYRAMID_FN, PRYSM_MAT, FLATS, CONTEXT,
-          LINES, PLACES, MAP_W, MAP_H, CELL, METER, PLOT_AREA_M2, MY_MAPS_ID,
-          defaultConfig, Wire3D */
+/* global CATALOG, ACTIONS, TUBE_CONTENT, PYRAMID_FN, PRYSM_MAT, WALL_MATERIALS,
+          FLATS, CONTEXT, LINES, PLACES, MAP_W, MAP_H, CELL, METER, PLOT_AREA_M2,
+          MY_MAPS_ID, defaultConfig, Wire3D */
 
 const LS_KEY = 'cyberia-map:intents:v2';
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -14,8 +14,12 @@ const state = {
   sel: null,          // {c0,r0,c1,r1} in cells
   action: 'BUILD',
   view: 'structure',  // 'structure' | 'site'
+  brush: { type: 'wall', mat: 'wood' }, // net painting tool
   intents: [],
 };
+
+// cube net: top over front, bottom under it, left · front · right · back in a strip
+const NET_ROWS = [['', 'top', '', ''], ['left', 'front', 'right', 'back'], ['', 'bottom', '', '']];
 
 function cfg() {
   if (!state.configs[state.structure]) state.configs[state.structure] = defaultConfig(state.structure);
@@ -111,7 +115,11 @@ function metaLine() {
     case 'cube':
       if (c.mode === 'unit') return `cell · 4×4×4 m · unit · ${c.pax}-pax`;
       if (c.mode === 'room') return `cell · 4×4×4 m · room · ${c.purpose ? '“' + c.purpose + '”' : 'purpose unset'}`;
-      return `cell · 4×4×4 m · wall grid 1×1×1 · ${c.walls.length} blocks`;
+      const v = Object.values(c.cells || {});
+      const open = v.filter(x => x.t === 'open').length;
+      const mats = [...new Set(v.filter(x => x.t === 'wall').map(x => x.m))];
+      return `cell · net 1×1 m · ${v.length - open} panels, ${open} openings` +
+             (mats.length ? ` · ${mats.join(', ')}` : '');
     case 'tube': {
       const s = c.size === 'M' ? 4 : 2;
       return `link · ${c.size} ${s}×${s} · ${c.len} m · ${c.content.slice(0, 3).join(', ') || 'empty'}${c.content.length > 3 ? ' +' + (c.content.length - 3) : ''}`;
@@ -143,6 +151,26 @@ function renderView() {
 
 const chip = (label, on, attrs) => `<button class="chip-btn ${on ? 'on' : ''}" ${attrs}>${label}</button>`;
 
+const matOf = id => WALL_MATERIALS.find(m => m.id === id);
+
+// 2d unfolding of the cube: six faces, 4×4 panels of 1×1 m each
+function netHtml(cells) {
+  return NET_ROWS.map(row => `<div class="net-row">` + row.map(face => {
+    if (!face) return `<div class="face ghost"></div>`;
+    let g = '';
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const cell = cells[`${face}:${r}:${c}`];
+      const m = cell && cell.t === 'wall' ? matOf(cell.m) : null;
+      const style = m ? `background:${m.color}59;border-color:${m.color}` : '';
+      const cls = cell && cell.t === 'open' ? 'nc open' : 'nc';
+      const title = cell ? (cell.t === 'open' ? 'opening' : (m ? m.name : cell.m)) : 'empty';
+      g += `<button class="${cls}" style="${style}" data-cell="${face}:${r}:${c}"
+             title="${face} · ${title}"></button>`;
+    }
+    return `<div class="face"><div class="face-cap">${face}</div><div class="fgrid">${g}</div></div>`;
+  }).join('') + `</div>`).join('');
+}
+
 function renderConfig() {
   const el = document.getElementById('config');
   const c = cfg();
@@ -157,12 +185,16 @@ function renderConfig() {
       html += `<div class="cfg-row"><span class="cfg-label">PURPOSE</span>
         <input id="purpose" type="text" maxlength="60" placeholder="type your prompt here" value="${esc(c.purpose)}"></div>`;
     if (c.mode === 'wallgrid') {
-      html += `<div class="cfg-row"><span class="cfg-label">GRID 1×1×1</span><div class="wallgrid">`;
-      for (let r = 0; r < 4; r++) for (let col = 0; col < 4; col++) {
-        const k = `${r},${col}`;
-        html += `<button class="wg ${c.walls.includes(k) ? 'on' : ''}" data-w="${k}"></button>`;
-      }
-      html += `</div></div>`;
+      const cells = c.cells || (c.cells = {});
+      html += `<div class="cfg-row"><span class="cfg-label">TOOL</span>` +
+        [['wall', 'WALL'], ['open', 'OPENING'], ['erase', 'ERASE']]
+          .map(([id, l]) => chip(l, state.brush.type === id, `data-tool="${id}"`)).join('') + `</div>`;
+      html += `<div class="cfg-row wrap ${state.brush.type === 'wall' ? '' : 'muted'}">` +
+        `<span class="cfg-label">MATERIAL</span>` +
+        WALL_MATERIALS.map(m => `<button class="chip-btn mat ${state.brush.mat === m.id ? 'on' : ''}"
+          data-mat2="${m.id}"><i style="background:${m.color}"></i>${m.name}</button>`).join('') + `</div>`;
+      html += `<div class="cfg-row col"><span class="cfg-label">NET · 1×1 m panels</span>` +
+        `<div class="net">` + netHtml(cells) + `</div></div>`;
     }
   }
   if (state.structure === 'tube') {
@@ -206,7 +238,21 @@ function wireConfig(el, c) {
   el.querySelectorAll('[data-pax]').forEach(b => b.onclick = () => { c.pax = +b.dataset.pax; refresh(); });
   const purpose = el.querySelector('#purpose');
   if (purpose) purpose.oninput = () => { c.purpose = purpose.value; renderView(); };
-  el.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { toggle(c.walls, b.dataset.w); refresh(); });
+  el.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
+    state.brush.type = b.dataset.tool; refresh();
+  });
+  el.querySelectorAll('[data-mat2]').forEach(b => b.onclick = () => {
+    state.brush.mat = b.dataset.mat2; state.brush.type = 'wall'; refresh();
+  });
+  el.querySelectorAll('[data-cell]').forEach(b => b.onclick = () => {
+    const key = b.dataset.cell, cells = c.cells || (c.cells = {}), was = cells[key];
+    if (state.brush.type === 'erase') delete cells[key];
+    else if (state.brush.type === 'open')
+      was && was.t === 'open' ? delete cells[key] : cells[key] = { t: 'open' };
+    else if (was && was.t === 'wall' && was.m === state.brush.mat) delete cells[key];
+    else cells[key] = { t: 'wall', m: state.brush.mat };
+    refresh();
+  });
   el.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { c.size = b.dataset.size; refresh(); });
   el.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { c.len = +b.dataset.len; refresh(); });
   el.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => { toggle(c.content, b.dataset.fill); refresh(); });
