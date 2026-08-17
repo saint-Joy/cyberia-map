@@ -32,7 +32,9 @@ fallback for parcels not yet in the map.
 
 - cube — 4×4×4 multipurpose cell: unit (1/2-pax), room (purpose = free
   prompt), custom wall grid 1×1×1
-- tube — living connector, S 2 m / M 4 m: closed pond, glass path top,
+- tube — living connector, arched: straight walls up to half height,
+  semicircular vault above (hence the name); S 2 m / M 4 m span and
+  height, free length. Fill: closed pond, glass path top,
   vines, glass + wood, algae bioreactor, herbs, berries, veggies,
   flowers, bees, birds, rabbits, chicks, rainbow python, flying fox
 - prysm — isosceles triangle as half-rhomb, centered; h 2 / 4 m;

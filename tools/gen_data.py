@@ -113,7 +113,7 @@ data = f"""// cyberia master map — catalog + sinwood-25 spa site from cyber va
 
 const CATALOG = [
   {{ id: 'cube',     name: 'CUBE-4',   sub: '4×4×4 m cell · 1 cell',       tag: 'CELL',   status: 'P0', glyph: 'C' }},
-  {{ id: 'tube',     name: 'TUBE',     sub: 'S/M · 2–4 m · length free',   tag: 'LINK',   status: 'P0', glyph: 'T' }},
+  {{ id: 'tube',     name: 'TUBE',     sub: 'arch · S/M 2–4 m · free len', tag: 'LINK',   status: 'P0', glyph: 'T' }},
   {{ id: 'prysm',    name: 'PRYSM',    sub: 'half-rhomb · h 2/4 m',        tag: 'MODULE', status: 'P1', glyph: 'P' }},
   {{ id: 'pyramid',  name: 'PYRAMID',  sub: '4×4×4 m · 1 cell',            tag: 'HUB',    status: 'P1', glyph: 'Y' }},
   {{ id: 'sphere',   name: 'SPHERE',   sub: '⌀4 m · 1 cell',               tag: 'CORE',   status: 'P1', glyph: 'S' }},

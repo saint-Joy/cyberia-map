@@ -124,17 +124,36 @@ const Wire3D = (() => {
     return groups;
   }
 
+  // tube = arch: straight walls up to half height, semicircular vault above.
+  // axis along x, span s across z, total height s (spec: 2 m size S, 4 m size M)
   function tubeGroups(cfg) {
     const s = cfg.size === 'M' ? 4 : 2, L = cfg.len, half = L / 2;
-    const groups = [{ color: GREEN, glow: true, edges: box(0, s / 2, 0, L, s, s) }];
+    const r = s / 2, wall = s - r, SEG = 12;
+
+    const prof = [[-r, 0]];
+    for (let i = 0; i <= SEG; i++) {
+      const t = Math.PI - i / SEG * Math.PI;
+      prof.push([r * Math.cos(t), wall + r * Math.sin(t)]);
+    }
+    prof.push([r, 0]);
+
+    const ring = x => prof.slice(0, -1).map((p, i) =>
+      [x, p[1], p[0], x, prof[i + 1][1], prof[i + 1][0]]);
+    const rail = i => [-half, prof[i][1], prof[i][0], half, prof[i][1], prof[i][0]];
+
+    const crown = 1 + SEG / 2;
+    const shell = { color: GREEN, glow: true, edges: [...ring(-half), ...ring(half)] };
+    for (const i of [0, 1, 1 + SEG / 4, crown, 1 + 3 * SEG / 4, 1 + SEG, SEG + 2])
+      shell.edges.push(rail(i));
     const frames = { color: DIM, edges: [] };
-    for (let x = -half + 2; x < half; x += 2)
-      frames.edges.push([x, 0, -s / 2, x, s, -s / 2], [x, s, -s / 2, x, s, s / 2],
-                        [x, s, s / 2, x, 0, s / 2], [x, 0, s / 2, x, 0, -s / 2]);
-    groups.push(frames);
+    for (let x = -half + 2; x < half; x += 2) frames.edges.push(...ring(x));
+    const groups = [shell, frames];
+
+    if (cfg.content.includes('glass path top'))
+      groups.push({ color: CYAN, dash: [6, 4], edges: [rail(crown - 1), rail(crown + 1)] });
     if (cfg.content.includes('closed pond'))
       groups.push({ color: CYAN, dash: [5, 4],
-                    edges: rectY(0.25, -half + 0.5, -s / 2 + 0.4, half - 0.5, s / 2 - 0.4) });
+                    edges: rectY(0.25, -half + 0.5, -r + 0.4, half - 0.5, r - 0.4) });
     return groups;
   }
 
