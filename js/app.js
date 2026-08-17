@@ -59,7 +59,7 @@ function footprint() {
   switch (state.structure) {
     case 'cube':    return { cols: 1, rows: 1 };
     case 'tube':    return { cols: Math.ceil(c.len / 4), rows: 1 };
-    case 'prysm':   return { cols: 1, rows: c.modular ? 2 : 1 };
+    case 'prysm':   return { cols: 1, rows: 1 }; // 4×2 m (4×4 modular) fits one cell
     case 'pyramid': return { cols: Math.ceil(c.base / 4), rows: Math.ceil(c.base / 4) };
     case 'sphere':  return { cols: Math.ceil(c.d / 4), rows: Math.ceil(c.d / 4) };
   }
@@ -116,7 +116,7 @@ function metaLine() {
       const s = c.size === 'M' ? 4 : 2;
       return `link · ${c.size} ${s}×${s} · ${c.len} m · ${c.content.slice(0, 3).join(', ') || 'empty'}${c.content.length > 3 ? ' +' + (c.content.length - 3) : ''}`;
     }
-    case 'prysm': return `module · half-rhomb · h ${c.h} m · ${c.mat.join('+') || 'no mat'} · ${c.modular ? 'modular' : 'monolith'}`;
+    case 'prysm': return `module · 4×${c.modular ? 4 : 2} m base · ridge h ${c.h} m · ${c.mat.join('+') || 'no mat'}`;
     case 'pyramid': return `hub · ${c.base}×${c.base} m base · ${c.fns.length} functions`;
     case 'sphere': return `core · ⌀${c.d} m · ${c.water ? 'water store below' : 'below empty'} · ${c.orangery ? 'orangery above' : 'shell above'}`;
   }

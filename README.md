@@ -37,8 +37,10 @@ fallback for parcels not yet in the map.
   height, free length. Fill: closed pond, glass path top,
   vines, glass + wood, algae bioreactor, herbs, berries, veggies,
   flowers, bees, birds, rabbits, chicks, rainbow python, flying fox
-- prysm — isosceles triangle as half-rhomb, centered; h 2 / 4 m;
-  wood, glass, metal; modular yes/no
+- prysm — A-frame module: 4 × 2 m base rectangle, ridge along the
+  middle, height 4 m (2 m option). The gable is the isosceles triangle
+  — half of a rhomb, centered. Wood, glass, metal; modular doubles the
+  depth to 4 × 4 m
 - pyramid — square base 4×4×4 m; hub: reception, shop, grill, cafe,
   organics, tools, tech, accums, chargers, delivery, post, play zone,
   outfit, fabrics, leather, jewels, robots, sweets

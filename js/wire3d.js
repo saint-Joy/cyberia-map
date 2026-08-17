@@ -157,16 +157,18 @@ const Wire3D = (() => {
     return groups;
   }
 
+  // prysm = A-frame: 4 × 2 m base rectangle, ridge along the middle, height h.
+  // the gable face is the isosceles triangle (half of a rhomb). modular = two modules deep.
   function prysmGroups(cfg) {
-    const h = cfg.h, base = 4, depth = cfg.modular ? 8 : 4, zh = depth / 2;
+    const h = cfg.h, span = 4, unit = 2, depth = cfg.modular ? unit * 2 : unit, zh = depth / 2;
     const color = cfg.mat.length === 1 ? MATCOL[cfg.mat[0]] : GREEN;
-    const tri = z => [[-base / 2, 0, z, base / 2, 0, z],
-                      [base / 2, 0, z, 0, h, z], [0, h, z, -base / 2, 0, z]];
+    const gable = z => [[-span / 2, 0, z, span / 2, 0, z],
+                        [span / 2, 0, z, 0, h, z], [0, h, z, -span / 2, 0, z]];
     const groups = [{ color, glow: true, edges: [
-      ...tri(-zh), ...tri(zh),
-      [-base / 2, 0, -zh, -base / 2, 0, zh], [base / 2, 0, -zh, base / 2, 0, zh],
+      ...gable(-zh), ...gable(zh),
+      [-span / 2, 0, -zh, -span / 2, 0, zh], [span / 2, 0, -zh, span / 2, 0, zh],
       [0, h, -zh, 0, h, zh]] }];
-    if (cfg.modular) groups.push({ color: DIM, edges: tri(0) });
+    if (cfg.modular) groups.push({ color: DIM, edges: gable(0) });
     return groups;
   }
 
@@ -203,7 +205,8 @@ const Wire3D = (() => {
 
   const BUILDERS = { cube: cubeGroups, tube: tubeGroups, prysm: prysmGroups,
                      pyramid: pyramidGroups, sphere: sphereGroups };
-  const RADII = { cube: () => 5, tube: c => c.len / 2 + 2, prysm: () => 5,
+  const RADII = { cube: () => 5, tube: c => c.len / 2 + 2,
+                  prysm: c => Math.max(4, c.h) + 1.5,
                   pyramid: c => c.base + 1, sphere: c => c.d / 2 + 3 };
 
   function build(id, cfg) {

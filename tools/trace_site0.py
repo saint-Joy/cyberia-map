@@ -50,7 +50,7 @@ data = f"""// cyberia master map — catalog + construction site traced from mas
 const CATALOG = [
   {{ id: 'cube',     name: 'CUBE-4',   sub: '4×4×4 m cell · 1 cell',       tag: 'CELL',   status: 'P0', glyph: 'C' }},
   {{ id: 'tube',     name: 'TUBE',     sub: 'arch · S/M 2–4 m · free len', tag: 'LINK',   status: 'P0', glyph: 'T' }},
-  {{ id: 'prysm',    name: 'PRYSM',    sub: 'half-rhomb · h 2/4 m',        tag: 'MODULE', status: 'P1', glyph: 'P' }},
+  {{ id: 'prysm',    name: 'PRYSM',    sub: 'A-frame · 4×2 m base · h 4 m', tag: 'MODULE', status: 'P1', glyph: 'P' }},
   {{ id: 'pyramid',  name: 'PYRAMID',  sub: '4×4×4 m · 1 cell',            tag: 'HUB',    status: 'P1', glyph: 'Y' }},
   {{ id: 'sphere',   name: 'SPHERE',   sub: '⌀4 m · 1 cell',               tag: 'CORE',   status: 'P1', glyph: 'S' }},
 ];
@@ -99,7 +99,7 @@ function defaultConfig(id) {{
   switch (id) {{
     case 'cube':     return {{ mode: 'unit', pax: 1, purpose: '', walls: [] }};
     case 'tube':     return {{ size: 'S', len: 8, content: ['closed pond', 'glass path top'] }};
-    case 'prysm':    return {{ h: 2, mat: ['wood', 'glass'], modular: true }};
+    case 'prysm':    return {{ h: 4, mat: ['wood', 'glass'], modular: false }};
     case 'pyramid':  return {{ base: 4, fns: ['reception', 'shop', 'cafe'] }};
     case 'sphere':   return {{ d: 4, water: true, orangery: true }};
     default:         return {{}};
